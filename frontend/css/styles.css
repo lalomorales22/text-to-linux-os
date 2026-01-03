@@ -1,0 +1,241 @@
+/* Custom styles for Text-to-Linux-OS Builder */
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Chat message animations */
+.message-enter {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Typing indicator */
+.typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background-color: #9ca3af;
+    border-radius: 50%;
+    animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+/* Message bubbles */
+.user-message {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 18px 18px 4px 18px;
+    max-width: 80%;
+    margin-left: auto;
+    word-wrap: break-word;
+}
+
+.assistant-message {
+    background: #374151;
+    color: #e5e7eb;
+    padding: 12px 16px;
+    border-radius: 18px 18px 18px 4px;
+    max-width: 80%;
+    margin-right: auto;
+    word-wrap: break-word;
+}
+
+/* Code blocks in messages */
+.assistant-message pre {
+    background: #1f2937;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
+}
+
+.assistant-message code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+/* Project cards */
+.project-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Theme color preview */
+.theme-color-preview {
+    transition: transform 0.2s;
+}
+
+.theme-color-preview:hover {
+    transform: scale(1.1);
+}
+
+/* Pulse animation for build progress */
+.pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Loading spinner */
+.spinner {
+    border: 3px solid #374151;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom button effects */
+button {
+    position: relative;
+    overflow: hidden;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+button:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* Size warning colors */
+.size-warning {
+    color: #fbbf24;
+}
+
+.size-danger {
+    color: #ef4444;
+}
+
+/* Success message */
+.success-message {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 16px;
+    border-radius: 8px;
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Error message */
+.error-message {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    padding: 16px;
+    border-radius: 8px;
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Gradient text */
+.gradient-text {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Log entry styling */
+.log-entry {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.log-entry.error {
+    color: #f87171;
+}
+
+.log-entry.warning {
+    color: #fbbf24;
+}
+
+.log-entry.success {
+    color: #34d399;
+}
+
+/* Hide scrollbar for ASCII art container */
+#asciiArt {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#asciiArt::-webkit-scrollbar {
+    display: none;
+}

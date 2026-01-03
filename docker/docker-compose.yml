@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: text-to-linux-os
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for development
+      - ../backend:/app/backend
+      - ../frontend:/app/frontend
+      - ../templates:/app/templates
+
+      # Persistent data volumes
+      - ../cache:/app/cache
+      - ../builds:/app/builds
+      - ../data:/app/data
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=sqlite:///./data/text-to-linux-os.db
+      - MAX_ISO_SIZE_GB=3
+      - BUILD_TIMEOUT_MINUTES=120
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    # Privileged mode needed for live-build
+    privileged: true
+    networks:
+      - text-to-linux-network
+
+networks:
+  text-to-linux-network:
+    driver: bridge

@@ -1,0 +1,96 @@
+# Text-to-Linux-OS Plymouth Theme Script
+# ASCII Art Boot Screen
+
+# Screen setup
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+# ASCII Art Logo
+logo_text = [
+    "████████╗███████╗██╗  ██╗████████╗    ████████╗ ██████╗ ",
+    "╚══██╔══╝██╔════╝╚██╗██╔╝╚══██╔══╝    ╚══██╔══╝██╔═══██╗",
+    "   ██║   █████╗   ╚███╔╝    ██║          ██║   ██║   ██║",
+    "   ██║   ██╔══╝   ██╔██╗    ██║          ██║   ██║   ██║",
+    "   ██║   ███████╗██╔╝ ██╗   ██║          ██║   ╚██████╔╝",
+    "   ╚═╝   ╚══════╝╚═╝  ╚═╝   ╚═╝          ╚═╝    ╚═════╝ ",
+    "                                                          ",
+    "██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗     ██████╗ ███████╗",
+    "██║     ██║████╗  ██║██║   ██║╚██╗██╔╝    ██╔═══██╗██╔════╝",
+    "██║     ██║██╔██╗ ██║██║   ██║ ╚███╔╝     ██║   ██║███████╗",
+    "██║     ██║██║╚██╗██║██║   ██║ ██╔██╗     ██║   ██║╚════██║",
+    "███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗    ╚██████╔╝███████║",
+    "╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝     ╚═════╝ ╚══════╝"
+];
+
+# Create logo sprites
+logo_sprites = [];
+for (i = 0; i < logo_text.GetLength(); i++) {
+    logo_sprites[i] = Sprite();
+    logo_sprites[i].SetImage(Image.Text(logo_text[i], 0.2, 0.8, 0.2));
+    logo_sprites[i].SetPosition(
+        Window.GetWidth() / 2 - logo_sprites[i].GetImage().GetWidth() / 2,
+        Window.GetHeight() / 3 + i * 20,
+        0
+    );
+}
+
+# Progress bar
+progress_box.image = Image("progress_box.png");
+progress_box.sprite = Sprite(progress_box.image);
+progress_box.x = Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2;
+progress_box.y = Window.GetHeight() / 2 + 200;
+progress_box.sprite.SetPosition(progress_box.x, progress_box.y, 0);
+
+progress_bar.original_image = Image("progress_bar.png");
+progress_bar.sprite = Sprite();
+progress_bar.x = Window.GetWidth() / 2 - progress_bar.original_image.GetWidth() / 2;
+progress_bar.y = Window.GetHeight() / 2 + 200;
+progress_bar.sprite.SetPosition(progress_bar.x, progress_bar.y, 1);
+
+# Progress text
+progress_text_sprite = Sprite();
+progress_text_sprite.SetPosition(
+    Window.GetWidth() / 2,
+    progress_box.y + 40,
+    2
+);
+
+# Refresh function
+fun refresh_callback() {
+    if (Plymouth.GetMode() == "boot") {
+        progress = Plymouth.GetBootProgress();
+    } else {
+        progress = 1.0 - Plymouth.GetBootProgress();
+    }
+
+    # Update progress bar
+    new_progress_bar_image = progress_bar.original_image.Scale(
+        progress_bar.original_image.GetWidth() * progress,
+        progress_bar.original_image.GetHeight()
+    );
+    progress_bar.sprite.SetImage(new_progress_bar_image);
+
+    # Update progress text
+    progress_text = Image.Text(
+        Math.Int(progress * 100) + "%",
+        0.2, 0.8, 0.2
+    );
+    progress_text_sprite.SetImage(progress_text);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Display message function
+message_sprite = Sprite();
+message_sprite.SetPosition(
+    Window.GetWidth() / 2,
+    Window.GetHeight() - 50,
+    10000
+);
+
+fun display_message_callback(text) {
+    message_image = Image.Text(text, 0.2, 0.8, 0.2);
+    message_sprite.SetImage(message_image);
+}
+
+Plymouth.SetDisplayMessageFunction(display_message_callback);

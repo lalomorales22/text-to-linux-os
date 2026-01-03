@@ -1,0 +1,66 @@
+# TEXT-TO-LINUX-OS GRUB Theme
+
+# General settings
+title-text: "TEXT-TO-LINUX-OS"
+title-font: "DejaVu Sans Bold 16"
+title-color: "#3b82f6"
+
+desktop-image: "background.png"
+desktop-color: "#1a1a1a"
+
+# Terminal
+terminal-font: "DejaVu Sans Mono 12"
+terminal-box: "terminal_*.png"
+
+# Boot menu
++ boot_menu {
+    left = 20%
+    top = 30%
+    width = 60%
+    height = 50%
+
+    item_font = "DejaVu Sans 14"
+    item_color = "#e0e0e0"
+    item_height = 32
+    item_padding = 10
+    item_spacing = 5
+
+    selected_item_font = "DejaVu Sans Bold 14"
+    selected_item_color = "#ffffff"
+    selected_item_pixmap_style = "select_*.png"
+
+    icon_width = 24
+    icon_height = 24
+    item_icon_space = 10
+}
+
+# Progress bar
++ progress_bar {
+    id = "__timeout__"
+    left = 20%
+    top = 85%
+    width = 60%
+    height = 24
+
+    font = "DejaVu Sans 12"
+    text_color = "#e0e0e0"
+
+    fg_color = "#3b82f6"
+    bg_color = "#333333"
+    border_color = "#666666"
+
+    text = "Booting in %d seconds"
+}
+
+# Help text
++ label {
+    top = 90%
+    left = 0
+    width = 100%
+    height = 20
+    align = "center"
+
+    font = "DejaVu Sans 10"
+    color = "#888888"
+    text = "Use ↑ and ↓ to select • Press Enter to boot • Press 'e' to edit"
+}

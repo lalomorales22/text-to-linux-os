@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Text-to-Linux-OS
+Description=ASCII Art Boot Theme for Text-to-Linux-OS
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/text-to-linux
+ScriptFile=/usr/share/plymouth/themes/text-to-linux/text-to-linux.script
