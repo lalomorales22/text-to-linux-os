@@ -96,7 +96,7 @@ async def send_message(chat_msg: ChatMessage) -> Dict[str, Any]:
 
         # Get response from Claude
         response = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-opus-4-5-20251101",
             max_tokens=2048,
             system=SYSTEM_PROMPT,
             messages=messages

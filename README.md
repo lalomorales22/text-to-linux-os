@@ -9,7 +9,7 @@ Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Creat
 ## Features
 
 ### 🤖 AI-Powered Configuration
-- Conversational wizard powered by Claude Sonnet
+- Conversational wizard powered by Claude Opus 4.5
 - Intelligent package suggestions based on use case
 - Automatic conflict detection
 - Real-time ISO size estimation
@@ -124,7 +124,7 @@ Ready to build!
 - **Frontend**: Vanilla JavaScript + Tailwind CSS
 - **Database**: SQLite
 - **Build System**: Debian live-build
-- **AI**: Anthropic Claude Sonnet 4
+- **AI**: Anthropic Claude Opus 4.5
 - **Containerization**: Docker + Docker Compose
 - **Window Manager**: OpenBox (for generated ISOs)
 
