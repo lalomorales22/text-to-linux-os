@@ -1,6 +1,10 @@
 """
 Text-to-Linux-OS Builder - Main FastAPI Application
 """
+# Load environment variables BEFORE importing other modules
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
