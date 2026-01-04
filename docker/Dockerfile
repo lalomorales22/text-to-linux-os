@@ -18,15 +18,29 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
-    # Build tools
-    isolinux \
-    syslinux \
-    grub-pc-bin \
-    grub-efi-amd64-bin \
+    # Build tools (architecture-independent)
     xorriso \
     squashfs-tools \
     # Clean up
     && rm -rf /var/lib/apt/lists/*
+
+# Install architecture-specific bootloader packages
+RUN apt-get update && \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        apt-get install -y \
+            isolinux \
+            syslinux \
+            grub-pc-bin \
+            grub-efi-amd64-bin; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        apt-get install -y \
+            grub-efi-arm64-bin; \
+    else \
+        apt-get install -y \
+            grub-efi-$(dpkg --print-architecture)-bin || true; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create application directory
 WORKDIR /app
