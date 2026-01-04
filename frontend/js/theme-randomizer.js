@@ -1,25 +1,74 @@
 /**
- * Theme randomizer functionality
+ * Theme randomizer with clickable color pickers
  */
 
 const themeElements = {
-    randomizeBtn: document.getElementById('randomizeThemeBtn'),
-    previewPrimary: document.getElementById('previewPrimary'),
-    previewSecondary: document.getElementById('previewSecondary'),
-    previewAccent: document.getElementById('previewAccent'),
-    previewBackground: document.getElementById('previewBackground')
+    randomizeBtn: null,
+    previewPrimary: null,
+    previewSecondary: null,
+    previewAccent: null,
+    previewBackground: null,
+    colorPrimary: null,
+    colorSecondary: null,
+    colorAccent: null,
+    colorBackground: null
 };
 
 /**
  * Initialize theme randomizer
  */
 function initThemeRandomizer() {
+    // Get elements
+    themeElements.randomizeBtn = document.getElementById('randomizeThemeBtn');
+    themeElements.previewPrimary = document.getElementById('previewPrimary');
+    themeElements.previewSecondary = document.getElementById('previewSecondary');
+    themeElements.previewAccent = document.getElementById('previewAccent');
+    themeElements.previewBackground = document.getElementById('previewBackground');
+    themeElements.colorPrimary = document.getElementById('colorPrimary');
+    themeElements.colorSecondary = document.getElementById('colorSecondary');
+    themeElements.colorAccent = document.getElementById('colorAccent');
+    themeElements.colorBackground = document.getElementById('colorBackground');
+
+    // Randomize button
     if (themeElements.randomizeBtn) {
         themeElements.randomizeBtn.addEventListener('click', randomizeTheme);
     }
 
+    // Color picker listeners - clicking preview opens native picker
+    setupColorPicker('Primary', 'primary');
+    setupColorPicker('Secondary', 'secondary');
+    setupColorPicker('Accent', 'accent');
+    setupColorPicker('Background', 'background');
+
     // Generate initial theme
     randomizeTheme();
+}
+
+/**
+ * Setup a color picker with click-to-edit
+ */
+function setupColorPicker(name, key) {
+    const preview = themeElements[`preview${name}`];
+    const input = themeElements[`color${name}`];
+
+    if (!preview || !input) return;
+
+    // Clicking preview opens color picker
+    preview.addEventListener('click', () => {
+        input.click();
+    });
+
+    // Color input change
+    input.addEventListener('input', (e) => {
+        const color = e.target.value;
+        preview.style.backgroundColor = color;
+        
+        // Update theme state
+        if (AppState.currentTheme && AppState.currentTheme.base_colors) {
+            AppState.currentTheme.base_colors[key] = color;
+            updateCompleteTheme();
+        }
+    });
 }
 
 /**
@@ -57,28 +106,29 @@ function updateThemePreview(theme) {
     const colors = theme.base_colors;
 
     // Update color previews with animation
-    animateColorChange(themeElements.previewPrimary, colors.primary);
-    animateColorChange(themeElements.previewSecondary, colors.secondary);
-    animateColorChange(themeElements.previewAccent, colors.accent);
-    animateColorChange(themeElements.previewBackground, colors.background);
+    animateColorChange(themeElements.previewPrimary, themeElements.colorPrimary, colors.primary);
+    animateColorChange(themeElements.previewSecondary, themeElements.colorSecondary, colors.secondary);
+    animateColorChange(themeElements.previewAccent, themeElements.colorAccent, colors.accent);
+    animateColorChange(themeElements.previewBackground, themeElements.colorBackground, colors.background);
 }
 
 /**
  * Animate color change
  */
-function animateColorChange(element, color) {
-    if (!element) return;
+function animateColorChange(preview, input, color) {
+    if (!preview) return;
 
-    // Add animation class
-    element.style.transform = 'scale(0.9)';
-    element.style.opacity = '0.5';
+    // Add animation
+    preview.style.transform = 'scale(0.95)';
+    preview.style.opacity = '0.7';
 
     setTimeout(() => {
-        element.style.backgroundColor = color;
-        element.style.transform = 'scale(1)';
-        element.style.opacity = '1';
-        element.style.transition = 'all 0.3s ease';
-    }, 150);
+        preview.style.backgroundColor = color;
+        if (input) input.value = color;
+        preview.style.transform = 'scale(1)';
+        preview.style.opacity = '1';
+        preview.style.transition = 'all 0.2s ease';
+    }, 100);
 }
 
 /**
@@ -89,10 +139,12 @@ function generateFallbackTheme() {
         return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
     };
 
-    const primary = randomColor();
-    const secondary = randomColor();
-    const accent = randomColor();
-    const background = randomColor();
+    // Generate a cohesive color palette
+    const hue = Math.floor(Math.random() * 360);
+    const primary = hslToHex(hue, 70, 50);
+    const secondary = hslToHex((hue + 30) % 360, 60, 45);
+    const accent = hslToHex((hue + 180) % 360, 80, 55);
+    const background = hslToHex(hue, 20, 15);
 
     return {
         base_colors: {
@@ -122,6 +174,20 @@ function generateFallbackTheme() {
             type: 'solid',
             color: background
         }
+    };
+}
+
+/**
+ * Update complete theme from current colors
+ */
+function updateCompleteTheme() {
+    if (!AppState.currentTheme || !AppState.currentTheme.base_colors) return;
+    
+    const colors = AppState.currentTheme.base_colors;
+    
+    AppState.currentTheme = {
+        ...AppState.currentTheme,
+        ...generateThemeFromColors(colors)
     };
 }
 
@@ -157,7 +223,7 @@ function generateThemeFromColors(colors) {
             window_inactive_title_bg: darken(colors.primary, 0.3)
         },
         terminal: {
-            background: darken(colors.primary, 0.85),
+            background: darken(colors.background, 0.7),
             foreground: '#e0e0e0',
             cursor: colors.accent,
             color4: colors.primary,
@@ -181,23 +247,35 @@ function generateThemeFromColors(colors) {
 }
 
 /**
+ * HSL to Hex conversion
+ */
+function hslToHex(h, s, l) {
+    s /= 100;
+    l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/**
  * Darken a hex color
  */
 function darken(hex, factor) {
-    // Remove # if present
+    if (!hex) return '#000000';
     hex = hex.replace('#', '');
 
-    // Convert to RGB
     let r = parseInt(hex.substring(0, 2), 16);
     let g = parseInt(hex.substring(2, 4), 16);
     let b = parseInt(hex.substring(4, 6), 16);
 
-    // Darken
     r = Math.floor(r * factor);
     g = Math.floor(g * factor);
     b = Math.floor(b * factor);
 
-    // Convert back to hex
     return '#' + [r, g, b].map(x => {
         const hex = x.toString(16);
         return hex.length === 1 ? '0' + hex : hex;
@@ -208,15 +286,16 @@ function darken(hex, factor) {
  * Lighten a hex color
  */
 function lighten(hex, factor) {
+    if (!hex) return '#ffffff';
     hex = hex.replace('#', '');
 
     let r = parseInt(hex.substring(0, 2), 16);
     let g = parseInt(hex.substring(2, 4), 16);
     let b = parseInt(hex.substring(4, 6), 16);
 
-    r = Math.min(255, Math.floor(r * factor));
-    g = Math.min(255, Math.floor(g * factor));
-    b = Math.min(255, Math.floor(b * factor));
+    r = Math.min(255, Math.floor(r + (255 - r) * factor));
+    g = Math.min(255, Math.floor(g + (255 - g) * factor));
+    b = Math.min(255, Math.floor(b + (255 - b) * factor));
 
     return '#' + [r, g, b].map(x => {
         const hex = x.toString(16);

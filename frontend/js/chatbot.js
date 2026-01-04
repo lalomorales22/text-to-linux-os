@@ -1,5 +1,5 @@
 /**
- * Chatbot functionality
+ * Chatbot functionality - Terminal Style
  */
 
 let currentProjectId = null;
@@ -7,27 +7,41 @@ let currentConfig = null;
 let isWaitingForResponse = false;
 
 const chatElements = {
-    messages: document.getElementById('chatMessages'),
-    input: document.getElementById('chatInput'),
-    sendBtn: document.getElementById('sendBtn'),
-    buildBtn: document.getElementById('buildBtn'),
-    sizeEstimate: document.getElementById('sizeEstimate'),
-    sizeBar: document.getElementById('sizeBar')
+    messages: null,
+    input: null,
+    sendBtn: null,
+    buildBtn: null,
+    sizeEstimate: null,
+    sizeBar: null
 };
 
 /**
  * Initialize chatbot
  */
 function initChatbot() {
-    chatElements.sendBtn.addEventListener('click', sendMessage);
-    chatElements.input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
+    chatElements.messages = document.getElementById('chatMessages');
+    chatElements.input = document.getElementById('chatInput');
+    chatElements.sendBtn = document.getElementById('sendBtn');
+    chatElements.buildBtn = document.getElementById('buildBtn');
+    chatElements.sizeEstimate = document.getElementById('sizeEstimate');
+    chatElements.sizeBar = document.getElementById('sizeBar');
 
-    chatElements.buildBtn.addEventListener('click', startBuild);
+    if (chatElements.sendBtn) {
+        chatElements.sendBtn.addEventListener('click', sendMessage);
+    }
+
+    if (chatElements.input) {
+        chatElements.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    }
+
+    if (chatElements.buildBtn) {
+        chatElements.buildBtn.addEventListener('click', startBuild);
+    }
 }
 
 /**
@@ -35,19 +49,24 @@ function initChatbot() {
  */
 function startNewChat() {
     // Clear previous chat
-    chatElements.messages.innerHTML = '';
+    if (chatElements.messages) {
+        chatElements.messages.innerHTML = '';
+    }
     currentProjectId = null;
     currentConfig = null;
-    chatElements.buildBtn.disabled = true;
+    
+    if (chatElements.buildBtn) {
+        chatElements.buildBtn.disabled = true;
+    }
 
-    // Show welcome message
+    // Show welcome message in terminal style
     addMessage('assistant',
-        "Hello! I'm here to help you create your custom Linux ISO. " +
-        "Let's start by understanding your needs.\n\n" +
-        "First, tell me about your hardware:\n" +
-        "- How much RAM do you have?\n" +
-        "- What's your CPU like (modern/older)?\n" +
-        "- What type of storage (SSD/HDD)?"
+        "System initialized.\n\n" +
+        "I'm your Linux ISO configuration assistant. Let's build something great.\n\n" +
+        "To get started, tell me about your system:\n" +
+        "• RAM size (e.g., 4GB, 8GB, 16GB)\n" +
+        "• CPU type (Intel/AMD, modern/older)\n" +
+        "• Primary use case (development, browsing, server, etc.)"
     );
 }
 
@@ -94,7 +113,7 @@ async function sendMessage() {
             updateSizeEstimate(response.config.size_estimate_mb);
 
             // Show build ready message
-            showSuccess('Configuration complete! You can now build your ISO.');
+            showSuccess('Configuration complete! Ready to build.');
         }
 
     } catch (error) {
@@ -126,7 +145,7 @@ function addMessage(role, content) {
  * Format message content (simple markdown support)
  */
 function formatMessageContent(content) {
-    // Escape HTML
+    // Escape HTML first
     let formatted = content
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -141,8 +160,8 @@ function formatMessageContent(content) {
     // Bold
     formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-    // Lists
-    formatted = formatted.replace(/^- (.+)$/gm, '• $1');
+    // Lists with bullet points
+    formatted = formatted.replace(/^[•\-] (.+)$/gm, '<span class="list-item">• $1</span>');
 
     // Line breaks
     formatted = formatted.replace(/\n/g, '<br>');
@@ -155,7 +174,7 @@ function formatMessageContent(content) {
  */
 function showTypingIndicator() {
     const typingDiv = document.createElement('div');
-    typingDiv.className = 'assistant-message typing-indicator';
+    typingDiv.className = 'typing-indicator';
     typingDiv.innerHTML = '<span></span><span></span><span></span>';
 
     const id = 'typing-' + Date.now();
@@ -181,24 +200,13 @@ function removeTypingIndicator(id) {
  * Update size estimate display
  */
 function updateSizeEstimate(sizeMb) {
-    chatElements.sizeEstimate.textContent = `~${Math.round(sizeMb)} MB`;
+    if (chatElements.sizeEstimate) {
+        chatElements.sizeEstimate.textContent = `~${Math.round(sizeMb)} MB`;
+    }
 
-    const percentage = Math.min((sizeMb / 3072) * 100, 100);
-    chatElements.sizeBar.style.width = percentage + '%';
-
-    // Color coding
-    if (sizeMb > 3072) {
-        chatElements.sizeBar.classList.remove('bg-blue-500', 'bg-yellow-500');
-        chatElements.sizeBar.classList.add('bg-red-500');
-        chatElements.sizeEstimate.classList.add('size-danger');
-    } else if (sizeMb > 2500) {
-        chatElements.sizeBar.classList.remove('bg-blue-500', 'bg-red-500');
-        chatElements.sizeBar.classList.add('bg-yellow-500');
-        chatElements.sizeEstimate.classList.add('size-warning');
-    } else {
-        chatElements.sizeBar.classList.remove('bg-yellow-500', 'bg-red-500');
-        chatElements.sizeBar.classList.add('bg-blue-500');
-        chatElements.sizeEstimate.classList.remove('size-warning', 'size-danger');
+    if (chatElements.sizeBar) {
+        const percentage = Math.min((sizeMb / 3072) * 100, 100);
+        chatElements.sizeBar.style.width = percentage + '%';
     }
 }
 
@@ -252,12 +260,12 @@ async function monitorBuildProgress(buildId) {
             const status = await API.get(`/api/build/status/${buildId}`);
 
             // Update progress
-            progressBar.style.width = status.progress + '%';
-            progressText.textContent = status.progress + '%';
-            stepText.textContent = status.current_step;
+            if (progressBar) progressBar.style.width = status.progress + '%';
+            if (progressText) progressText.textContent = status.progress + '%';
+            if (stepText) stepText.textContent = status.current_step;
 
             // Update logs
-            if (status.logs) {
+            if (status.logs && logsContainer) {
                 logsContainer.innerHTML = formatBuildLogs(status.logs);
                 logsContainer.scrollTop = logsContainer.scrollHeight;
             }
@@ -265,13 +273,15 @@ async function monitorBuildProgress(buildId) {
             // Check if complete or failed
             if (status.status === 'completed') {
                 clearInterval(pollInterval);
-                downloadSection.classList.remove('hidden');
+                if (downloadSection) downloadSection.classList.remove('hidden');
 
                 // Set download button
                 const downloadBtn = document.getElementById('downloadBtn');
-                downloadBtn.onclick = () => {
-                    window.location.href = status.iso_path.replace('./builds', '/api/projects/download');
-                };
+                if (downloadBtn) {
+                    downloadBtn.onclick = () => {
+                        window.location.href = status.iso_path.replace('./builds', '/api/projects/download');
+                    };
+                }
 
                 showSuccess('Build completed successfully!');
             } else if (status.status === 'failed') {
@@ -281,9 +291,8 @@ async function monitorBuildProgress(buildId) {
 
         } catch (error) {
             console.error('Error polling build status:', error);
-            // Don't stop polling on temporary errors
         }
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
 }
 
 /**
@@ -305,15 +314,8 @@ function formatBuildLogs(logs) {
     }).join('');
 }
 
-/**
- * Escape HTML
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 // Export functions
 window.initChatbot = initChatbot;
 window.startNewChat = startNewChat;
+window.addMessage = addMessage;
+window.currentProjectId = currentProjectId;

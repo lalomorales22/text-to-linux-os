@@ -1,5 +1,6 @@
 /**
  * Main application controller
+ * Text-to-Linux-OS Builder
  */
 
 // Application state
@@ -7,7 +8,8 @@ const AppState = {
     currentScreen: 'welcome',
     currentProject: null,
     currentBuild: null,
-    currentTheme: null
+    currentTheme: null,
+    selectedProjectId: null
 };
 
 // DOM Elements
@@ -18,9 +20,12 @@ const screens = {
     gallery: document.getElementById('galleryScreen')
 };
 
+const tabs = {
+    newProject: document.getElementById('newProjectTab'),
+    gallery: document.getElementById('galleryTab')
+};
+
 const buttons = {
-    newProject: document.getElementById('newProjectBtn'),
-    gallery: document.getElementById('galleryBtn'),
     startChat: document.getElementById('startChatBtn'),
     build: document.getElementById('buildBtn'),
     backToGallery: document.getElementById('backToGalleryBtn'),
@@ -33,14 +38,29 @@ const buttons = {
 function init() {
     console.log('Initializing Text-to-Linux-OS Builder...');
 
-    // Set up event listeners
-    buttons.newProject.addEventListener('click', () => showScreen('chat'));
-    buttons.gallery.addEventListener('click', loadGallery);
+    // Set up tab listeners
+    tabs.newProject.addEventListener('click', () => {
+        setActiveTab('newProject');
+        showScreen('welcome');
+    });
+
+    tabs.gallery.addEventListener('click', () => {
+        setActiveTab('gallery');
+        loadGallery();
+    });
+
+    // Button listeners
     buttons.startChat.addEventListener('click', () => showScreen('chat'));
-    buttons.backToGallery.addEventListener('click', loadGallery);
+
+    if (buttons.backToGallery) {
+        buttons.backToGallery.addEventListener('click', loadGallery);
+    }
 
     if (buttons.createFirstProject) {
-        buttons.createFirstProject.addEventListener('click', () => showScreen('chat'));
+        buttons.createFirstProject.addEventListener('click', () => {
+            setActiveTab('newProject');
+            showScreen('chat');
+        });
     }
 
     // Initialize sub-modules
@@ -50,6 +70,16 @@ function init() {
 
     // Show welcome screen
     showScreen('welcome');
+}
+
+/**
+ * Set active tab
+ */
+function setActiveTab(tabName) {
+    Object.values(tabs).forEach(tab => tab.classList.remove('active'));
+    if (tabs[tabName]) {
+        tabs[tabName].classList.add('active');
+    }
 }
 
 /**
@@ -81,18 +111,17 @@ function showScreen(screenName) {
  * Show notification
  */
 function showNotification(message, type = 'info') {
+    const container = document.getElementById('notificationContainer');
+    
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-lg shadow-lg z-50 ${
-        type === 'error' ? 'error-message' :
-        type === 'success' ? 'success-message' :
-        'bg-blue-600 text-white'
-    }`;
+    notification.className = `notification ${type}`;
     notification.textContent = message;
 
-    document.body.appendChild(notification);
+    container.appendChild(notification);
 
     setTimeout(() => {
         notification.style.opacity = '0';
+        notification.style.transform = 'translateX(20px)';
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
@@ -126,7 +155,28 @@ function formatFileSize(bytes) {
  */
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    const now = new Date();
+    const diff = now - date;
+    
+    // Less than a minute
+    if (diff < 60000) return 'Just now';
+    // Less than an hour
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    // Less than a day
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    // Less than a week
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    
+    return date.toLocaleDateString();
+}
+
+/**
+ * Escape HTML
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 /**
@@ -195,4 +245,6 @@ window.showError = showError;
 window.showSuccess = showSuccess;
 window.formatFileSize = formatFileSize;
 window.formatDate = formatDate;
+window.escapeHtml = escapeHtml;
 window.API = API;
+window.setActiveTab = setActiveTab;

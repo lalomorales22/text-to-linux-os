@@ -2,9 +2,13 @@ version: '3.8'
 
 services:
   app:
+    # Force amd64 platform for Apple Silicon Macs to enable building amd64 ISOs
+    platform: linux/amd64
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      platforms:
+        - linux/amd64
     container_name: text-to-linux-os
     env_file:
       - ../.env
@@ -21,7 +25,6 @@ services:
       - ../builds:/app/builds
       - ../data:/app/data
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATABASE_URL=sqlite:///./data/text-to-linux-os.db
       - MAX_ISO_SIZE_GB=3
       - BUILD_TIMEOUT_MINUTES=120

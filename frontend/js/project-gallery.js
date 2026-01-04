@@ -1,16 +1,77 @@
 /**
- * Project gallery functionality
+ * Project gallery with sidebar and rename functionality
  */
 
-const galleryElements = {
-    grid: document.getElementById('projectsGrid'),
-    empty: document.getElementById('emptyGallery')
-};
+let galleryElements = {};
+let currentSelectedProject = null;
 
 /**
  * Initialize project gallery
  */
 function initProjectGallery() {
+    galleryElements = {
+        projectsList: document.getElementById('projectsList'),
+        emptyState: document.getElementById('emptyState'),
+        projectView: document.getElementById('projectView'),
+        projectName: document.getElementById('projectName'),
+        projectStatus: document.getElementById('projectStatus'),
+        projectVersion: document.getElementById('projectVersion'),
+        projectCreated: document.getElementById('projectCreated'),
+        projectUpdated: document.getElementById('projectUpdated'),
+        projectVersionCount: document.getElementById('projectVersionCount'),
+        projectSize: document.getElementById('projectSize'),
+        projectThemeColors: document.getElementById('projectThemeColors'),
+        renameBtn: document.getElementById('renameBtn'),
+        renameForm: document.getElementById('renameForm'),
+        renameInput: document.getElementById('renameInput'),
+        saveRenameBtn: document.getElementById('saveRenameBtn'),
+        cancelRenameBtn: document.getElementById('cancelRenameBtn'),
+        viewDownloadBtn: document.getElementById('viewDownloadBtn'),
+        viewContinueBtn: document.getElementById('viewContinueBtn'),
+        viewRetryBtn: document.getElementById('viewRetryBtn'),
+        viewDeleteBtn: document.getElementById('viewDeleteBtn'),
+        createFirstProject: document.getElementById('createFirstProject')
+    };
+
+    // Setup rename functionality
+    if (galleryElements.renameBtn) {
+        galleryElements.renameBtn.addEventListener('click', showRenameForm);
+    }
+    if (galleryElements.saveRenameBtn) {
+        galleryElements.saveRenameBtn.addEventListener('click', saveRename);
+    }
+    if (galleryElements.cancelRenameBtn) {
+        galleryElements.cancelRenameBtn.addEventListener('click', hideRenameForm);
+    }
+    if (galleryElements.renameInput) {
+        galleryElements.renameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') saveRename();
+            if (e.key === 'Escape') hideRenameForm();
+        });
+    }
+
+    // Setup action buttons
+    if (galleryElements.viewDownloadBtn) {
+        galleryElements.viewDownloadBtn.addEventListener('click', () => {
+            if (currentSelectedProject) downloadProject(currentSelectedProject);
+        });
+    }
+    if (galleryElements.viewContinueBtn) {
+        galleryElements.viewContinueBtn.addEventListener('click', () => {
+            if (currentSelectedProject) editProject(currentSelectedProject);
+        });
+    }
+    if (galleryElements.viewRetryBtn) {
+        galleryElements.viewRetryBtn.addEventListener('click', () => {
+            if (currentSelectedProject) retryBuild(currentSelectedProject);
+        });
+    }
+    if (galleryElements.viewDeleteBtn) {
+        galleryElements.viewDeleteBtn.addEventListener('click', () => {
+            if (currentSelectedProject) deleteProject(currentSelectedProject);
+        });
+    }
+
     console.log('Project gallery initialized');
 }
 
@@ -19,6 +80,7 @@ function initProjectGallery() {
  */
 async function loadGallery() {
     showScreen('gallery');
+    setActiveTab('gallery');
     await loadProjectGallery();
 }
 
@@ -30,12 +92,26 @@ async function loadProjectGallery() {
         const projects = await API.get('/api/projects/list');
 
         if (projects.length === 0) {
-            galleryElements.grid.classList.add('hidden');
-            galleryElements.empty.classList.remove('hidden');
+            galleryElements.projectsList.innerHTML = `
+                <div class="empty-sidebar-message">
+                    <p>No projects yet</p>
+                </div>
+            `;
+            showEmptyState();
         } else {
-            galleryElements.empty.classList.add('hidden');
-            galleryElements.grid.classList.remove('hidden');
-            renderProjects(projects);
+            renderProjectsList(projects);
+            
+            // If we had a selected project, re-select it
+            if (currentSelectedProject) {
+                const updatedProject = projects.find(p => p.id === currentSelectedProject.id);
+                if (updatedProject) {
+                    selectProject(updatedProject);
+                } else {
+                    showEmptyState();
+                }
+            } else {
+                showEmptyState();
+            }
         }
 
     } catch (error) {
@@ -44,129 +120,159 @@ async function loadProjectGallery() {
 }
 
 /**
- * Render projects in gallery
+ * Show empty state
  */
-function renderProjects(projects) {
-    galleryElements.grid.innerHTML = '';
+function showEmptyState() {
+    currentSelectedProject = null;
+    if (galleryElements.emptyState) galleryElements.emptyState.classList.remove('hidden');
+    if (galleryElements.projectView) galleryElements.projectView.classList.add('hidden');
+}
+
+/**
+ * Render projects in sidebar
+ */
+function renderProjectsList(projects) {
+    galleryElements.projectsList.innerHTML = '';
 
     projects.forEach(project => {
-        const card = createProjectCard(project);
-        galleryElements.grid.appendChild(card);
+        const item = createProjectItem(project);
+        galleryElements.projectsList.appendChild(item);
     });
 }
 
 /**
- * Create project card element
+ * Create project sidebar item
  */
-function createProjectCard(project) {
-    const card = document.createElement('div');
-    card.className = 'project-card bg-gray-800 border border-gray-700 rounded-lg p-6 cursor-pointer';
+function createProjectItem(project) {
+    const item = document.createElement('div');
+    item.className = 'project-item';
+    item.dataset.projectId = project.id;
 
-    // Theme preview colors
-    let themePreview = '';
-    if (project.latest_version && project.latest_version.theme_preview) {
-        const colors = project.latest_version.theme_preview;
-        themePreview = `
-            <div class="flex gap-2 mb-4">
-                <div class="w-6 h-6 rounded border border-gray-600 theme-color-preview"
-                     style="background-color: ${colors.primary}"></div>
-                <div class="w-6 h-6 rounded border border-gray-600 theme-color-preview"
-                     style="background-color: ${colors.secondary}"></div>
-                <div class="w-6 h-6 rounded border border-gray-600 theme-color-preview"
-                     style="background-color: ${colors.accent}"></div>
-            </div>
-        `;
+    if (currentSelectedProject && currentSelectedProject.id === project.id) {
+        item.classList.add('active');
     }
 
-    // Status badge
-    const statusColor = {
-        'draft': 'bg-gray-600',
-        'configuring': 'bg-blue-600',
-        'building': 'bg-yellow-600',
-        'completed': 'bg-green-600',
-        'failed': 'bg-red-600'
-    }[project.status] || 'bg-gray-600';
-
-    // ISO size
-    let sizeInfo = '';
-    if (project.latest_version && project.latest_version.iso_size) {
-        sizeInfo = `<p class="text-sm text-gray-400">Size: ${formatFileSize(project.latest_version.iso_size)}</p>`;
-    }
-
-    card.innerHTML = `
-        ${themePreview}
-
-        <h3 class="text-xl font-bold mb-2">${escapeHtml(project.name)}</h3>
-
-        <div class="mb-3">
-            <span class="inline-block ${statusColor} text-xs px-2 py-1 rounded-full">
-                ${project.status}
-            </span>
-            <span class="text-xs text-gray-400 ml-2">
-                v${project.current_version}
-            </span>
-        </div>
-
-        ${sizeInfo}
-
-        <p class="text-sm text-gray-400 mb-4">
-            ${project.version_count} version${project.version_count !== 1 ? 's' : ''}
-        </p>
-
-        <p class="text-xs text-gray-500">
-            Updated: ${formatDate(project.updated_at)}
-        </p>
-
-        <div class="mt-4 flex gap-2">
-            ${project.latest_version && project.latest_version.iso_path ? `
-                <button class="download-btn flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-medium transition">
-                    Download
-                </button>
-            ` : ''}
-            ${project.status === 'failed' ? `
-                <button class="retry-btn flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-sm font-medium transition">
-                    Retry Build
-                </button>
-            ` : ''}
-            <button class="edit-btn flex-1 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium transition">
-                ${project.status === 'completed' ? 'View' : 'Continue'}
-            </button>
-            <button class="delete-btn bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-medium transition">
-                Delete
-            </button>
+    item.innerHTML = `
+        <span class="project-dot ${project.status}"></span>
+        <div class="project-info">
+            <div class="project-item-name">${escapeHtml(project.name)}</div>
+            <div class="project-item-meta">v${project.current_version} · ${formatDate(project.updated_at)}</div>
         </div>
     `;
 
-    // Add event listeners
-    const downloadBtn = card.querySelector('.download-btn');
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            downloadProject(project);
-        });
-    }
+    item.addEventListener('click', () => selectProject(project));
 
-    const retryBtn = card.querySelector('.retry-btn');
-    if (retryBtn) {
-        retryBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            retryBuild(project);
-        });
-    }
+    return item;
+}
 
-    const editBtn = card.querySelector('.edit-btn');
-    editBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        editProject(project);
+/**
+ * Select a project and show details
+ */
+async function selectProject(project) {
+    currentSelectedProject = project;
+    AppState.selectedProjectId = project.id;
+
+    // Update sidebar active state
+    document.querySelectorAll('.project-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.projectId === project.id) {
+            item.classList.add('active');
+        }
     });
 
-    const deleteBtn = card.querySelector('.delete-btn');
-    deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteProject(project);
-    });
+    // Show project view
+    if (galleryElements.emptyState) galleryElements.emptyState.classList.add('hidden');
+    if (galleryElements.projectView) galleryElements.projectView.classList.remove('hidden');
 
-    return card;
+    // Populate project details
+    galleryElements.projectName.textContent = project.name;
+    galleryElements.projectStatus.textContent = project.status;
+    galleryElements.projectStatus.className = `status-badge ${project.status}`;
+    galleryElements.projectVersion.textContent = `v${project.current_version}`;
+    galleryElements.projectCreated.textContent = formatDate(project.created_at);
+    galleryElements.projectUpdated.textContent = formatDate(project.updated_at);
+    galleryElements.projectVersionCount.textContent = project.version_count || 1;
+
+    // ISO Size
+    if (project.latest_version && project.latest_version.iso_size) {
+        galleryElements.projectSize.textContent = formatFileSize(project.latest_version.iso_size);
+    } else {
+        galleryElements.projectSize.textContent = '—';
+    }
+
+    // Theme colors
+    if (project.latest_version && project.latest_version.theme_preview) {
+        const colors = project.latest_version.theme_preview;
+        galleryElements.projectThemeColors.innerHTML = `
+            <div class="color-swatch" style="background-color: ${colors.primary}" title="Primary"></div>
+            <div class="color-swatch" style="background-color: ${colors.secondary}" title="Secondary"></div>
+            <div class="color-swatch" style="background-color: ${colors.accent}" title="Accent"></div>
+            <div class="color-swatch" style="background-color: ${colors.background}" title="Background"></div>
+        `;
+    } else {
+        galleryElements.projectThemeColors.innerHTML = '<span style="color: var(--text-muted)">No theme set</span>';
+    }
+
+    // Update action buttons visibility
+    const hasIso = project.latest_version && project.latest_version.iso_path;
+    galleryElements.viewDownloadBtn.style.display = hasIso ? 'flex' : 'none';
+    galleryElements.viewRetryBtn.classList.toggle('hidden', project.status !== 'failed');
+    galleryElements.viewContinueBtn.textContent = project.status === 'completed' ? 'View Details' : 'Continue Editing';
+}
+
+/**
+ * Show rename form
+ */
+function showRenameForm() {
+    if (!currentSelectedProject) return;
+    
+    galleryElements.renameInput.value = currentSelectedProject.name;
+    galleryElements.renameForm.classList.remove('hidden');
+    galleryElements.projectName.parentElement.style.display = 'none';
+    galleryElements.renameInput.focus();
+    galleryElements.renameInput.select();
+}
+
+/**
+ * Hide rename form
+ */
+function hideRenameForm() {
+    galleryElements.renameForm.classList.add('hidden');
+    galleryElements.projectName.parentElement.style.display = 'flex';
+}
+
+/**
+ * Save rename
+ */
+async function saveRename() {
+    if (!currentSelectedProject) return;
+    
+    const newName = galleryElements.renameInput.value.trim();
+    if (!newName) {
+        showError('Project name cannot be empty');
+        return;
+    }
+
+    if (newName === currentSelectedProject.name) {
+        hideRenameForm();
+        return;
+    }
+
+    try {
+        await API.put(`/api/projects/${currentSelectedProject.id}`, { name: newName });
+        
+        currentSelectedProject.name = newName;
+        galleryElements.projectName.textContent = newName;
+        
+        hideRenameForm();
+        showSuccess('Project renamed');
+        
+        // Reload sidebar to update name there too
+        await loadProjectGallery();
+        
+    } catch (error) {
+        showError('Failed to rename project: ' + error.message);
+    }
 }
 
 /**
@@ -192,65 +298,52 @@ async function editProject(project) {
 
         // Set current project
         AppState.currentProject = project.id;
-        currentProjectId = project.id;
 
-        if (project.status === 'completed') {
-            // Show project details/history
-            showProjectDetails(details);
+        // Switch to chat screen
+        setActiveTab('newProject');
+        showScreen('chat');
+
+        // Get chat elements
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const buildBtn = document.getElementById('buildBtn');
+
+        // Clear and load conversation history
+        chatMessages.innerHTML = '';
+        
+        if (details.conversations && details.conversations.length > 0) {
+            details.conversations.forEach(msg => {
+                addMessage(msg.role, msg.message);
+            });
         } else {
-            // Continue configuration
-            showScreen('chat');
+            // Show welcome if no conversation
+            addMessage('assistant',
+                `Continuing project: ${project.name}\n\n` +
+                "Let's continue configuring your Linux ISO. What would you like to adjust?"
+            );
+        }
 
-            // Load conversation history
-            chatElements.messages.innerHTML = '';
-            if (details.conversations) {
-                details.conversations.forEach(msg => {
-                    addMessage(msg.role, msg.message);
-                });
-            }
-
-            // Load config if available
-            if (details.versions && details.versions.length > 0) {
-                const latestVersion = details.versions[0];
-                currentConfig = latestVersion.config;
-
-                if (latestVersion.theme_config) {
-                    AppState.currentTheme = latestVersion.theme_config;
+        // Load config if available
+        if (details.versions && details.versions.length > 0) {
+            const latestVersion = details.versions[0];
+            
+            if (latestVersion.theme_config) {
+                AppState.currentTheme = latestVersion.theme_config;
+                if (typeof updateThemePreview === 'function') {
                     updateThemePreview(latestVersion.theme_config);
                 }
-
-                if (currentConfig.size_estimate_mb) {
-                    updateSizeEstimate(currentConfig.size_estimate_mb);
-                }
-
-                chatElements.buildBtn.disabled = false;
             }
+
+            if (latestVersion.config && latestVersion.config.size_estimate_mb) {
+                updateSizeEstimate(latestVersion.config.size_estimate_mb);
+            }
+
+            buildBtn.disabled = false;
         }
 
     } catch (error) {
         showError('Failed to load project: ' + error.message);
     }
-}
-
-/**
- * Show project details
- */
-function showProjectDetails(project) {
-    // For now, just show a simple view
-    // In a full implementation, this would show version history, etc.
-    showScreen('chat');
-
-    chatElements.messages.innerHTML = `
-        <div class="assistant-message">
-            <strong>${escapeHtml(project.name)}</strong><br><br>
-            Status: ${project.status}<br>
-            Versions: ${project.versions.length}<br>
-            Created: ${formatDate(project.created_at)}<br>
-            <br>
-            This project is completed. You can download the ISO from the gallery
-            or start a new version by continuing the conversation.
-        </div>
-    `;
 }
 
 /**
@@ -264,7 +357,8 @@ async function deleteProject(project) {
     try {
         await API.delete(`/api/projects/${project.id}`);
         showSuccess('Project deleted');
-        loadProjectGallery();
+        currentSelectedProject = null;
+        await loadProjectGallery();
     } catch (error) {
         showError('Failed to delete project: ' + error.message);
     }
@@ -303,7 +397,6 @@ function pollBuildStatusForGallery(buildId) {
         try {
             const status = await API.get(`/api/build/status/${buildId}`);
 
-            // Check if complete or failed
             if (status.status === 'completed') {
                 clearInterval(pollInterval);
                 showSuccess('Build completed successfully!');
@@ -316,21 +409,29 @@ function pollBuildStatusForGallery(buildId) {
 
         } catch (error) {
             console.error('Error polling build status:', error);
-            // Don't stop polling on temporary errors
         }
-    }, 3000); // Poll every 3 seconds
+    }, 3000);
 }
 
 /**
- * Escape HTML for safety
+ * Update size estimate display
  */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+function updateSizeEstimate(sizeMb) {
+    const sizeEstimate = document.getElementById('sizeEstimate');
+    const sizeBar = document.getElementById('sizeBar');
+    
+    if (sizeEstimate) {
+        sizeEstimate.textContent = `~${sizeMb} MB`;
+    }
+    
+    if (sizeBar) {
+        const percentage = Math.min((sizeMb / 3000) * 100, 100);
+        sizeBar.style.width = `${percentage}%`;
+    }
 }
 
 // Export functions
 window.initProjectGallery = initProjectGallery;
 window.loadProjectGallery = loadProjectGallery;
 window.loadGallery = loadGallery;
+window.updateSizeEstimate = updateSizeEstimate;

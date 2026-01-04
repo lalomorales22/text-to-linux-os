@@ -24,7 +24,8 @@ class LiveBuildOrchestrator:
     """Orchestrates the live-build process"""
 
     def __init__(self, build_dir: str, progress_callback: Optional[Callable] = None):
-        self.build_dir = build_dir
+        # Ensure build_dir is an absolute path
+        self.build_dir = os.path.abspath(build_dir)
         self.progress_callback = progress_callback
         self.current_step = ""
         self.progress = 0
@@ -127,8 +128,17 @@ class LiveBuildOrchestrator:
         """Clean previous build artifacts"""
         try:
             # Remove previous live-build artifacts
-            clean_cmd = f"cd {self.build_dir} && lb clean --purge"
-            await self._run_command(clean_cmd, "Clean")
+            # Also remove any stale stage files that might cause issues
+            await self._run_command("lb clean --purge", "Clean")
+            # Remove stale stage files if they exist
+            stage_files = [".build", ".stage"]
+            for sf in stage_files:
+                stage_path = os.path.join(self.build_dir, sf)
+                if os.path.exists(stage_path):
+                    if os.path.isdir(stage_path):
+                        shutil.rmtree(stage_path)
+                    else:
+                        os.remove(stage_path)
         except Exception as e:
             # It's okay if clean fails (might be first build)
             logger.warning(f"Clean failed (expected for first build): {e}")
@@ -136,16 +146,13 @@ class LiveBuildOrchestrator:
     async def _run_lb_config(self):
         """Run lb config"""
         # The auto/config script should already be created by config_generator
-        config_cmd = f"cd {self.build_dir} && lb config"
-        await self._run_command(config_cmd, "Config")
+        await self._run_command("lb config", "Config")
 
     async def _run_lb_build(self):
         """Run lb build - this is the main build process"""
-        build_cmd = f"cd {self.build_dir} && lb build 2>&1"
-
-        # Run with streaming output
+        # Run with streaming output directly in the build directory
         process = await asyncio.create_subprocess_shell(
-            build_cmd,
+            "lb build 2>&1",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=self.build_dir
@@ -222,12 +229,13 @@ class LiveBuildOrchestrator:
 
     async def _run_command(self, command: str, step_name: str):
         """Run a shell command and capture output"""
-        logger.info(f"Running: {command}")
+        logger.info(f"Running: {command} (in {self.build_dir})")
 
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=self.build_dir
         )
 
         stdout, _ = await process.communicate()

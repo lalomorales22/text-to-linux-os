@@ -91,6 +91,7 @@ async def get_project(project_id: int) -> Dict[str, Any]:
 
 
 @router.put("/{project_id}/update")
+@router.put("/{project_id}")
 async def update_project(project_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update project details

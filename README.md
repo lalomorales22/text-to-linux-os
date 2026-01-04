@@ -2,9 +2,36 @@
 
 Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Create bootable, minimal distributions tailored to your exact needs - from hardware optimization to package selection.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
+![Platform](https://img.shields.io/badge/platform-Docker-blue)
+
+## ✨ What's New in v1.1.0
+
+### 🎨 Complete UI Redesign
+- **Dark theme** with elegant black dot-grid background
+- **Widget-style window** wrapper with macOS-inspired controls
+- **Terminal-style chatbot** that feels like using a real command line
+- **Tab navigation** (New Project / Gallery) in the top-right corner
+- **ASCII art branding** for a retro-modern feel
+
+### 🎨 Enhanced Theme Customization
+- **Clickable color pickers** - click any color swatch to open a native color picker
+- **Live color editing** - instantly update theme colors
+- Randomize button for quick theme generation
+
+### 📁 Improved Project Gallery
+- **Sidebar navigation** - browse projects by name in a left sidebar
+- **Project rename** - click the edit icon to rename projects inline
+- **Detailed project view** - see creation date, versions, ISO size, and theme colors
+- **Status indicators** - colored dots show project status at a glance
+
+### 🔧 Bug Fixes
+- **Fixed Anthropic API compatibility** - updated to work with latest anthropic package (>=0.45.0)
+- **Fixed environment variable loading** - `.env` file now properly loads into Docker containers
+- **Fixed build paths** - resolved issues with relative paths in Docker causing build failures
+- **Fixed cross-architecture builds** - Apple Silicon Macs now properly build amd64 ISOs via Rosetta emulation
 
 ## Features
 
@@ -33,9 +60,32 @@ Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Creat
 ### 📦 Project Management
 - Multiple project support
 - Version control per project
-- Project gallery with previews
+- Project gallery with sidebar navigation
+- Project renaming
 - Download management
 - Conversation history
+
+## Screenshots
+
+### Terminal-Style Chat Interface
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ⟩_ config-wizard.sh                    ● AI Connected      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│ [AI] System initialized.                                    │
+│                                                             │
+│ I'm your Linux ISO configuration assistant.                 │
+│ Let's build something great.                                │
+│                                                             │
+│ > 8GB RAM, modern Intel CPU, for Python development        │
+│                                                             │
+│ [AI] Perfect! I'll configure a development-focused system. │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│ $ Enter your response...                              [↵]  │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Quick Start
 
@@ -45,6 +95,8 @@ Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Creat
 - Anthropic API key ([Get one here](https://console.anthropic.com/))
 - 20GB+ free disk space (for builds)
 - 4GB+ RAM recommended
+
+> **Note for Apple Silicon (M1/M2/M3) Macs**: The Docker container runs in amd64 emulation mode via Rosetta to enable building x86_64 Linux ISOs. Builds will be slower but fully functional.
 
 ### Installation
 
@@ -70,15 +122,16 @@ The application will be available at **http://localhost:8000**
 ### Creating Your First ISO
 
 1. **Open the application** at http://localhost:8000
-2. **Click "Start Building Your OS"**
-3. **Chat with the AI wizard**:
+2. **Click "Initialize Build Process"** on the welcome screen
+3. **Chat with the AI wizard** in the terminal-style interface:
    - Describe your hardware (RAM, CPU, storage)
    - Specify your use case (development, browsing, media, etc.)
    - Request specific packages and tools
    - Review the configuration
 
 4. **Customize the theme** (optional):
-   - Click "Randomize Theme" until you find colors you like
+   - Click any color swatch to pick a custom color
+   - Or click "Randomize" for a random theme
    - Preview shows OpenBox, terminal, and panel colors
 
 5. **Build the ISO**:
@@ -90,6 +143,14 @@ The application will be available at **http://localhost:8000**
    - Write to USB drive with tools like `dd`, Rufus, or Etcher
    - Boot on target hardware
    - Enjoy your custom Linux distribution!
+
+### Managing Projects
+
+- Click the **"Gallery"** tab to view all your projects
+- Projects are listed in the **left sidebar** with status indicators
+- Click a project to view its details
+- **Rename** projects by clicking the ✎ icon
+- **Download**, **continue editing**, or **delete** from the project view
 
 ### Example Conversation
 
@@ -335,6 +396,33 @@ sudo docker-compose up
 1. Check `.env` file exists and contains valid key
 2. Restart docker containers: `docker-compose restart`
 3. Check logs: `docker-compose logs -f`
+
+### TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+
+This error occurs with older versions of the anthropic package. The fix is included in v1.1.0:
+```bash
+# Update to the latest requirements
+pip install anthropic>=0.45.0 httpx>=0.27.0
+# Or rebuild Docker container
+docker-compose down && docker-compose up --build
+```
+
+### Build Fails with "foreign architecture(s)" on Apple Silicon
+
+This happens when running on Apple Silicon Macs (M1/M2/M3). The Docker container needs to run in x86_64 emulation mode, which is now configured by default in v1.1.0.
+
+If you see this error, ensure you're using the latest `docker-compose.yml` with `platform: linux/amd64`.
+
+### Build Fails with "cd: can't cd to ./builds/..."
+
+This was caused by relative paths not resolving correctly in Docker. Fixed in v1.1.0 with absolute path resolution.
+
+### Build Fails with "the following stage is required: bootstrap"
+
+This occurs when stale build files exist from a previous failed attempt. The build system now automatically cleans these files, but you can also manually clean:
+```bash
+docker-compose exec builder rm -rf /app/builds/*/\.build /app/builds/*/\.stage*
+```
 
 ## Contributing
 

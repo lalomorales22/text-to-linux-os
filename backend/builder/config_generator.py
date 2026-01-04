@@ -231,6 +231,8 @@ def copy_templates_to_config(config_dir: str, templates_dir: str = "./templates"
 
 def create_build_directory(project_name: str, version: int) -> str:
     """Create and return build directory path"""
-    build_dir = f"./builds/{project_name}_v{version}"
+    # Use absolute path to ensure it works in all contexts (including Docker subprocesses)
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    build_dir = os.path.join(base_dir, "builds", f"{project_name}_v{version}")
     os.makedirs(build_dir, exist_ok=True)
     return build_dir
