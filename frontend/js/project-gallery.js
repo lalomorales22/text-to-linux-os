@@ -218,6 +218,14 @@ async function selectProject(project) {
     galleryElements.viewDownloadBtn.style.display = hasIso ? 'flex' : 'none';
     galleryElements.viewRetryBtn.classList.toggle('hidden', project.status !== 'failed');
     galleryElements.viewContinueBtn.textContent = project.status === 'completed' ? 'View Details' : 'Continue Editing';
+    
+    // Check if build is in progress
+    if (project.status === 'building' && project.current_build_id) {
+        showBuildProgress();
+        pollBuildStatusWithProgress(project.current_build_id);
+    } else {
+        hideBuildProgress();
+    }
 }
 
 /**
@@ -374,43 +382,132 @@ async function retryBuild(project) {
 
     try {
         showSuccess('Starting build retry...');
+        
+        // Show build progress section
+        showBuildProgress();
+        
         const response = await API.post(`/api/build/retry/${project.id}`, {});
 
         // Update UI to show building status
         await loadProjectGallery();
 
-        // Start polling for build status
+        // Start polling for build status with progress updates
         if (response.build_id) {
-            pollBuildStatusForGallery(response.build_id);
+            pollBuildStatusWithProgress(response.build_id);
         }
 
     } catch (error) {
         showError('Failed to retry build: ' + error.message);
+        hideBuildProgress();
     }
 }
 
 /**
- * Poll build status and update gallery when complete
+ * Show build progress section in gallery
  */
-function pollBuildStatusForGallery(buildId) {
+function showBuildProgress() {
+    const progressSection = document.getElementById('projectBuildProgress');
+    const progressBar = document.getElementById('projectProgressBar');
+    const statusText = document.getElementById('projectBuildStatus');
+    const logsArea = document.getElementById('projectBuildLogs');
+    
+    if (progressSection) {
+        progressSection.classList.remove('hidden');
+        progressBar.style.width = '0%';
+        statusText.textContent = 'Starting build...';
+        logsArea.innerHTML = '';
+    }
+}
+
+/**
+ * Hide build progress section
+ */
+function hideBuildProgress() {
+    const progressSection = document.getElementById('projectBuildProgress');
+    if (progressSection) {
+        progressSection.classList.add('hidden');
+    }
+}
+
+/**
+ * Update build progress display
+ */
+function updateBuildProgress(progress, statusMessage, logs) {
+    const progressBar = document.getElementById('projectProgressBar');
+    const statusText = document.getElementById('projectBuildStatus');
+    const logsArea = document.getElementById('projectBuildLogs');
+    
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
+    
+    if (statusText && statusMessage) {
+        statusText.textContent = statusMessage;
+    }
+    
+    if (logsArea && logs && logs.length > 0) {
+        // Show last 20 log lines
+        const recentLogs = logs.slice(-20);
+        logsArea.innerHTML = recentLogs.map(log => `<div>${escapeHtml(log)}</div>`).join('');
+        logsArea.scrollTop = logsArea.scrollHeight;
+    }
+}
+
+/**
+ * Poll build status with progress updates for gallery view
+ */
+function pollBuildStatusWithProgress(buildId) {
+    let lastLogLength = 0;
+    
     const pollInterval = setInterval(async () => {
         try {
             const status = await API.get(`/api/build/status/${buildId}`);
 
+            // Update progress
+            const progress = status.progress || 0;
+            const step = status.current_step || 'Building...';
+            updateBuildProgress(progress, step);
+            
+            // Fetch logs
+            try {
+                const logsResponse = await API.get(`/api/build/logs/${buildId}`);
+                if (logsResponse.logs && logsResponse.logs.length > lastLogLength) {
+                    lastLogLength = logsResponse.logs.length;
+                    updateBuildProgress(progress, step, logsResponse.logs);
+                }
+            } catch (logErr) {
+                // Logs endpoint might not exist or fail, that's okay
+            }
+
             if (status.status === 'completed') {
                 clearInterval(pollInterval);
+                updateBuildProgress(100, 'Build completed!');
                 showSuccess('Build completed successfully!');
-                await loadProjectGallery();
+                setTimeout(() => {
+                    hideBuildProgress();
+                    loadProjectGallery();
+                }, 2000);
             } else if (status.status === 'failed') {
                 clearInterval(pollInterval);
+                updateBuildProgress(progress, 'Build failed: ' + (status.error || 'Unknown error'));
                 showError('Build failed: ' + (status.error || 'Unknown error'));
-                await loadProjectGallery();
+                setTimeout(() => {
+                    hideBuildProgress();
+                    loadProjectGallery();
+                }, 3000);
             }
 
         } catch (error) {
             console.error('Error polling build status:', error);
         }
-    }, 3000);
+    }, 2000);
+}
+
+/**
+ * Poll build status and update gallery when complete (legacy)
+ */
+function pollBuildStatusForGallery(buildId) {
+    pollBuildStatusWithProgress(buildId);
 }
 
 /**

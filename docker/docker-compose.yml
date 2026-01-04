@@ -22,8 +22,13 @@ services:
 
       # Persistent data volumes
       - ../cache:/app/cache
-      - ../builds:/app/builds
       - ../data:/app/data
+      
+      # Use a Docker volume for builds (not bind mount) to allow mknod operations
+      - builds_volume:/app/builds
+      
+      # Mount a directory to copy finished ISOs to host
+      - ../iso_output:/app/iso_output
     environment:
       - DATABASE_URL=sqlite:///./data/text-to-linux-os.db
       - MAX_ISO_SIZE_GB=3
@@ -32,9 +37,19 @@ services:
     restart: unless-stopped
     # Privileged mode needed for live-build
     privileged: true
+    # Security options for debootstrap
+    security_opt:
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+      - MKNOD
     networks:
       - text-to-linux-network
 
 networks:
   text-to-linux-network:
     driver: bridge
+
+volumes:
+  builds_volume:
+    driver: local
