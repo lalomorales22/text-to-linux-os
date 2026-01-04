@@ -5,6 +5,7 @@ import os
 import subprocess
 import asyncio
 import logging
+import shutil
 from typing import Optional, Dict, Any, Callable
 from datetime import datetime
 
@@ -30,6 +31,24 @@ class LiveBuildOrchestrator:
         self.logs = []
         self.status = BuildStatus.QUEUED
 
+    def _check_live_build_installed(self) -> tuple[bool, str]:
+        """Check if live-build is installed on the system"""
+        lb_path = shutil.which('lb')
+
+        if not lb_path:
+            error_msg = (
+                "live-build (lb) command not found. "
+                "This tool is required to build Debian-based ISOs.\n\n"
+                "Installation instructions:\n"
+                "- On Debian/Ubuntu: sudo apt-get install live-build\n"
+                "- On macOS: live-build is not supported. Please use Docker or a Linux VM.\n"
+                "- Using Docker: docker run -v $(pwd):/work debian:bookworm bash -c 'apt-get update && apt-get install -y live-build'\n\n"
+                "Note: This application must run on a Debian/Ubuntu Linux system for ISO building."
+            )
+            return False, error_msg
+
+        return True, f"live-build found at: {lb_path}"
+
     async def build_iso(self) -> Dict[str, Any]:
         """
         Build the ISO using live-build
@@ -38,6 +57,13 @@ class LiveBuildOrchestrator:
         try:
             self.status = BuildStatus.RUNNING
             self.update_progress(0, "Initializing build environment")
+
+            # Check if live-build is installed
+            is_installed, message = self._check_live_build_installed()
+            if not is_installed:
+                raise Exception(message)
+
+            self.logs.append(message)
 
             # Step 1: Clean previous builds
             await self._run_step(10, "Cleaning previous builds", self._clean_build)

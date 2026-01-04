@@ -179,8 +179,10 @@ Once running, visit http://localhost:8000/docs for interactive API documentation
 
 #### Builder
 - `POST /api/build/start` - Start ISO build
+- `POST /api/build/retry/{project_id}` - Retry failed build
 - `GET /api/build/status/{build_id}` - Get build status
 - `GET /api/build/logs/{build_id}` - Get build logs
+- `POST /api/build/cancel/{build_id}` - Cancel running build
 
 #### Projects
 - `POST /api/projects/create` - Create new project
@@ -281,6 +283,29 @@ pytest tests/
 ```
 
 ## Troubleshooting
+
+### Build Fails with "live-build (lb) command not found"
+
+This error occurs when live-build is not installed on your system. This application **requires** a Debian/Ubuntu Linux environment to build ISOs.
+
+**Solutions:**
+
+1. **Use Docker (Recommended)**: The Docker setup includes all required dependencies
+   ```bash
+   docker-compose -f docker/docker-compose.yml up --build
+   ```
+
+2. **Running on Linux**: Install live-build directly
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y live-build debootstrap
+   ```
+
+3. **Running on macOS/Windows**: Use Docker or a Linux VM
+   - macOS: live-build is not supported natively
+   - Windows: Use WSL2 with Ubuntu or Docker
+
+**Note**: The backend will automatically detect if live-build is missing and provide helpful error messages with installation instructions.
 
 ### Build Fails with "Package not found"
 
