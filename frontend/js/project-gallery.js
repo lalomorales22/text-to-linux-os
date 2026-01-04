@@ -123,6 +123,11 @@ function createProjectCard(project) {
                     Download
                 </button>
             ` : ''}
+            ${project.status === 'failed' ? `
+                <button class="retry-btn flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-sm font-medium transition">
+                    Retry Build
+                </button>
+            ` : ''}
             <button class="edit-btn flex-1 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium transition">
                 ${project.status === 'completed' ? 'View' : 'Continue'}
             </button>
@@ -138,6 +143,14 @@ function createProjectCard(project) {
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             downloadProject(project);
+        });
+    }
+
+    const retryBtn = card.querySelector('.retry-btn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            retryBuild(project);
         });
     }
 
@@ -255,6 +268,57 @@ async function deleteProject(project) {
     } catch (error) {
         showError('Failed to delete project: ' + error.message);
     }
+}
+
+/**
+ * Retry failed build
+ */
+async function retryBuild(project) {
+    if (!confirm(`Retry building "${project.name}"?`)) {
+        return;
+    }
+
+    try {
+        showSuccess('Starting build retry...');
+        const response = await API.post(`/api/build/retry/${project.id}`, {});
+
+        // Update UI to show building status
+        await loadProjectGallery();
+
+        // Start polling for build status
+        if (response.build_id) {
+            pollBuildStatusForGallery(response.build_id);
+        }
+
+    } catch (error) {
+        showError('Failed to retry build: ' + error.message);
+    }
+}
+
+/**
+ * Poll build status and update gallery when complete
+ */
+function pollBuildStatusForGallery(buildId) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const status = await API.get(`/api/build/status/${buildId}`);
+
+            // Check if complete or failed
+            if (status.status === 'completed') {
+                clearInterval(pollInterval);
+                showSuccess('Build completed successfully!');
+                await loadProjectGallery();
+            } else if (status.status === 'failed') {
+                clearInterval(pollInterval);
+                showError('Build failed: ' + (status.error || 'Unknown error'));
+                await loadProjectGallery();
+            }
+
+        } catch (error) {
+            console.error('Error polling build status:', error);
+            // Don't stop polling on temporary errors
+        }
+    }, 3000); // Poll every 3 seconds
 }
 
 /**

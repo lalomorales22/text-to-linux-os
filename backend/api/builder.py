@@ -237,3 +237,52 @@ async def cancel_build(build_id: str) -> Dict[str, Any]:
         return {"message": "Build cancelled"}
     else:
         return {"message": f"Cannot cancel build in status: {tracker.status}"}
+
+
+@router.post("/retry/{project_id}")
+async def retry_build(project_id: int, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """
+    Retry a failed build for a project
+    """
+    try:
+        # Get project
+        project = ProjectDB.get(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Get latest version
+        versions = VersionDB.get_by_project(project_id)
+        if not versions:
+            raise HTTPException(status_code=404, detail="No version found for project")
+
+        version = versions[0]
+
+        # Validate config
+        is_valid, errors = validate_iso_config(version['config'])
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid configuration: {', '.join(errors)}")
+
+        # Generate new build ID
+        build_id = str(uuid.uuid4())
+
+        # Create build tracker
+        tracker = BuildTracker(build_id, project_id, version['id'])
+        active_builds[build_id] = tracker
+
+        # Update project status
+        ProjectDB.update(project_id, status="building")
+
+        # Start build in background
+        background_tasks.add_task(run_build, build_id, project, version)
+
+        return {
+            "build_id": build_id,
+            "status": "queued",
+            "message": "Build retry started successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrying build: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
