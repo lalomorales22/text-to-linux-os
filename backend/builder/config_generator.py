@@ -43,7 +43,7 @@ def generate_live_build_config(config: Dict[str, Any], build_dir: str) -> str:
 
     # Create base directories
     os.makedirs(config_dir, exist_ok=True)
-    os.makedirs(f"{config_dir}/hooks", exist_ok=True)
+    os.makedirs(f"{config_dir}/hooks/live", exist_ok=True)
     os.makedirs(f"{config_dir}/includes.chroot", exist_ok=True)
     os.makedirs(f"{config_dir}/includes.chroot/etc/skel", exist_ok=True)
     os.makedirs(f"{config_dir}/includes.chroot/usr/local/bin", exist_ok=True)
