@@ -49,7 +49,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Using --break-system-packages is safe in Docker containers (isolated environment)
+RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . /app
