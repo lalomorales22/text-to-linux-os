@@ -32,6 +32,12 @@ Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Creat
 - **Fixed environment variable loading** - `.env` file now properly loads into Docker containers
 - **Fixed build paths** - resolved issues with relative paths in Docker causing build failures
 - **Fixed cross-architecture builds** - Apple Silicon Macs now properly build amd64 ISOs via Rosetta emulation
+- **Fixed debootstrap mknod errors** - builds now use Docker volumes with proper permissions
+
+### 📊 Build Progress Tracking
+- **Live progress bar** in project gallery during builds
+- **Real-time log streaming** shows build output as it happens
+- **Retry builds** directly from the gallery view
 
 ## Features
 
@@ -421,8 +427,16 @@ This was caused by relative paths not resolving correctly in Docker. Fixed in v1
 
 This occurs when stale build files exist from a previous failed attempt. The build system now automatically cleans these files, but you can also manually clean:
 ```bash
-docker-compose exec builder rm -rf /app/builds/*/\.build /app/builds/*/\.stage*
+docker-compose exec text-to-linux-os rm -rf /app/builds/*/\.build /app/builds/*/\.stage*
 ```
+
+### Build Fails with "mknod: Operation not permitted"
+
+This error occurs when trying to create device nodes during debootstrap. The v1.1.0 docker-compose.yml uses a Docker volume (instead of bind mount) for the builds directory, which allows these operations. Make sure you're using the latest docker-compose.yml with:
+- `builds_volume:/app/builds` (Docker volume, not bind mount)
+- `privileged: true`
+- `security_opt: apparmor:unconfined`
+- `cap_add: SYS_ADMIN, MKNOD`
 
 ## Contributing
 
