@@ -329,9 +329,35 @@ If a build fails:
 
 ## Development
 
-### Running Locally
+### Platform Requirements
+
+| Platform | Method | Notes |
+|----------|--------|-------|
+| **macOS** | Docker only ✅ | live-build doesn't exist on macOS. Docker runs in amd64 emulation mode. |
+| **Windows** | Docker or WSL2 | Use Docker Desktop, or WSL2 with Ubuntu for native builds. |
+| **Linux (Debian/Ubuntu)** | Docker or native | Can run directly with uvicorn after installing live-build. |
+
+### Running with Docker (All Platforms)
+
+This is the recommended method for all platforms:
 
 ```bash
+# Start the application
+docker-compose -f docker/docker-compose.yml up --build
+
+# Stop the application
+docker-compose -f docker/docker-compose.yml down
+```
+
+### Running Locally (Linux Only)
+
+> ⚠️ **Linux only** - This requires `live-build` and `debootstrap` which are only available on Debian/Ubuntu.
+
+```bash
+# Install system dependencies (Debian/Ubuntu)
+sudo apt-get update
+sudo apt-get install -y live-build debootstrap
+
 # Install Python dependencies
 pip install -r requirements.txt
 
