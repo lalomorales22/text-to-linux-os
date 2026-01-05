@@ -1,4 +1,7 @@
 # Text-to-Linux-OS Builder
+<img width="1378" height="865" alt="Screenshot 2026-01-04 at 8 07 58 PM" src="https://github.com/user-attachments/assets/40605e7c-53ea-4df9-935a-af0cc45503dc" />
+<img width="1378" height="864" alt="Screenshot 2026-01-04 at 8 07 50 PM" src="https://github.com/user-attachments/assets/eb03762c-0369-4eb5-bee5-36b8bc518db0" />
+<img width="1379" height="868" alt="Screenshot 2026-01-04 at 8 07 41 PM" src="https://github.com/user-attachments/assets/80fa4646-e192-413c-9a97-752a2978a8be" />
 
 Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Create bootable, minimal distributions tailored to your exact needs - from hardware optimization to package selection.
 
