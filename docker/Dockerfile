@@ -1,76 +1,50 @@
 FROM debian:bookworm
 
-# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    # Live-build and dependencies
+# live-build toolchain, Python runtime, and QEMU for boot verification
+RUN apt-get update && apt-get install -y --no-install-recommends \
     live-build \
     debootstrap \
-    # Python
-    python3.11 \
-    python3-pip \
-    python3-venv \
-    # Database
-    sqlite3 \
-    # Utilities
-    curl \
-    wget \
-    git \
-    # Build tools (architecture-independent)
     xorriso \
     squashfs-tools \
-    # Clean up
+    python3 \
+    python3-pip \
+    python3-venv \
+    sqlite3 \
+    curl \
+    ca-certificates \
+    qemu-system-x86 \
+    qemu-utils \
+    ovmf \
     && rm -rf /var/lib/apt/lists/*
 
-# Install architecture-specific bootloader packages
+# Architecture-specific bootloader payloads for the generated ISOs
 RUN apt-get update && \
     ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "amd64" ]; then \
-        apt-get install -y \
-            isolinux \
-            syslinux \
-            grub-pc-bin \
-            grub-efi-amd64-bin; \
-    elif [ "$ARCH" = "arm64" ]; then \
-        apt-get install -y \
-            grub-efi-arm64-bin; \
+        apt-get install -y --no-install-recommends \
+            isolinux syslinux grub-pc-bin grub-efi-amd64-bin; \
     else \
-        apt-get install -y \
-            grub-efi-$(dpkg --print-architecture)-bin || true; \
+        apt-get install -y --no-install-recommends \
+            grub-efi-$ARCH-bin || true; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
-# Create application directory
 WORKDIR /app
 
-# Copy requirements first for better caching
 COPY requirements.txt .
-
-# Install Python dependencies
-# Using --break-system-packages is safe in Docker containers (isolated environment)
+# --break-system-packages is fine inside the container
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . /app
 
-# Create required directories with proper permissions
-RUN mkdir -p \
-    /app/cache/packages \
-    /app/builds \
-    /app/data \
-    /app/templates \
-    && chmod -R 755 /app
+RUN mkdir -p /app/cache/packages /app/builds /app/data
 
-# Expose port
 EXPOSE 8000
 
-# Set entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-# Default command
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

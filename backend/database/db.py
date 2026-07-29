@@ -1,22 +1,30 @@
+"""SQLite persistence layer.
+
+Plain sqlite3 with a connection-per-operation context manager. Column names in
+dynamic UPDATE statements are validated against per-table whitelists so caller
+kwargs can never inject SQL.
 """
-Database connection and initialization
-"""
-import sqlite3
 import json
-import os
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Any, Iterator, Optional
+
+from backend.config import get_settings
 
 
-DATABASE_PATH = os.getenv("DATABASE_URL", "sqlite:///./data/text-to-linux-os.db").replace("sqlite:///", "")
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @contextmanager
-def get_db():
-    """Get database connection context manager"""
-    conn = sqlite3.connect(DATABASE_PATH)
+def get_db() -> Iterator[sqlite3.Connection]:
+    settings = get_settings()
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(settings.database_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
     try:
         yield conn
         conn.commit()
@@ -27,251 +35,331 @@ def get_db():
         conn.close()
 
 
-def init_db():
-    """Initialize database schema"""
-    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    draft_config TEXT,
+    theme_config TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 
+CREATE TABLE IF NOT EXISTS versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    config TEXT NOT NULL,
+    theme_config TEXT,
+    iso_path TEXT,
+    iso_size INTEGER,
+    iso_sha256 TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS builds (
+    id TEXT PRIMARY KEY,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    version_id INTEGER NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'queued',
+    progress INTEGER NOT NULL DEFAULT 0,
+    step TEXT NOT NULL DEFAULT 'Queued',
+    log_path TEXT,
+    error TEXT,
+    boot_test TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS packages (
+    name TEXT PRIMARY KEY,
+    version TEXT,
+    installed_size_kb INTEGER,
+    download_size_bytes INTEGER,
+    section TEXT,
+    description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+"""
+
+
+def init_db() -> None:
     with get_db() as conn:
-        cursor = conn.cursor()
+        conn.executescript(SCHEMA)
 
-        # Projects table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                current_version INTEGER DEFAULT 1,
-                status TEXT DEFAULT 'draft'
-            )
-        """)
 
-        # Versions table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS versions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_id INTEGER,
-                version_number INTEGER,
-                config TEXT NOT NULL,
-                theme_config TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                iso_path TEXT,
-                iso_size INTEGER,
-                build_logs TEXT,
-                FOREIGN KEY (project_id) REFERENCES projects(id)
-            )
-        """)
-
-        # Conversations table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_id INTEGER,
-                version_id INTEGER,
-                role TEXT NOT NULL,
-                message TEXT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (project_id) REFERENCES projects(id),
-                FOREIGN KEY (version_id) REFERENCES versions(id)
-            )
-        """)
-
-        # Package cache table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS package_cache (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                package_name TEXT UNIQUE NOT NULL,
-                version TEXT,
-                download_url TEXT,
-                file_hash TEXT,
-                cached_path TEXT,
-                last_used TIMESTAMP
-            )
-        """)
-
-        conn.commit()
+def _update(conn: sqlite3.Connection, table: str, allowed: set[str],
+            row_id: Any, id_column: str, fields: dict[str, Any]) -> None:
+    bad = set(fields) - allowed
+    if bad:
+        raise ValueError(f"Unknown column(s) for {table}: {', '.join(sorted(bad))}")
+    if not fields:
+        return
+    assignments = ", ".join(f"{k} = ?" for k in fields)
+    conn.execute(
+        f"UPDATE {table} SET {assignments} WHERE {id_column} = ?",
+        [*fields.values(), row_id],
+    )
 
 
 class ProjectDB:
-    """Project database operations"""
+    UPDATABLE = {"name", "status", "draft_config", "theme_config", "updated_at"}
 
     @staticmethod
     def create(name: str, status: str = "draft") -> int:
-        """Create a new project"""
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO projects (name, status) VALUES (?, ?)",
-                (name, status)
+            cur = conn.execute(
+                "INSERT INTO projects (name, status, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (name, status, _now(), _now()),
             )
-            return cursor.lastrowid
+            return cur.lastrowid
 
     @staticmethod
-    def get(project_id: int) -> Optional[Dict[str, Any]]:
-        """Get project by ID"""
+    def get(project_id: int) -> Optional[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
-            row = cursor.fetchone()
-            return dict(row) if row else None
+            row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+            return ProjectDB._hydrate(row) if row else None
 
     @staticmethod
-    def list_all() -> List[Dict[str, Any]]:
-        """List all projects"""
+    def list_all() -> list[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM projects ORDER BY updated_at DESC")
-            return [dict(row) for row in cursor.fetchall()]
+            rows = conn.execute("SELECT * FROM projects ORDER BY updated_at DESC").fetchall()
+            return [ProjectDB._hydrate(r) for r in rows]
 
     @staticmethod
-    def update(project_id: int, **kwargs):
-        """Update project"""
+    def update(project_id: int, **fields: Any) -> None:
+        for key in ("draft_config", "theme_config"):
+            if key in fields and isinstance(fields[key], (dict, list)):
+                fields[key] = json.dumps(fields[key])
+        fields["updated_at"] = _now()
         with get_db() as conn:
-            cursor = conn.cursor()
-            kwargs['updated_at'] = datetime.now().isoformat()
-            fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
-            values = list(kwargs.values()) + [project_id]
-            cursor.execute(f"UPDATE projects SET {fields} WHERE id = ?", values)
+            _update(conn, "projects", ProjectDB.UPDATABLE, project_id, "id", fields)
 
     @staticmethod
-    def delete(project_id: int):
-        """Delete project and all related data"""
+    def delete(project_id: int) -> None:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM conversations WHERE project_id = ?", (project_id,))
-            cursor.execute("DELETE FROM versions WHERE project_id = ?", (project_id,))
-            cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+
+    @staticmethod
+    def _hydrate(row: sqlite3.Row) -> dict:
+        data = dict(row)
+        for key in ("draft_config", "theme_config"):
+            data[key] = json.loads(data[key]) if data.get(key) else None
+        return data
 
 
 class VersionDB:
-    """Version database operations"""
+    UPDATABLE = {"config", "theme_config", "iso_path", "iso_size", "iso_sha256"}
 
     @staticmethod
-    def create(project_id: int, version_number: int, config: Dict[str, Any],
-               theme_config: Optional[Dict[str, Any]] = None) -> int:
-        """Create a new version"""
+    def create(project_id: int, config: dict, theme_config: Optional[dict] = None) -> int:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """INSERT INTO versions
-                   (project_id, version_number, config, theme_config)
-                   VALUES (?, ?, ?, ?)""",
-                (project_id, version_number, json.dumps(config),
-                 json.dumps(theme_config) if theme_config else None)
+            row = conn.execute(
+                "SELECT COALESCE(MAX(version_number), 0) + 1 AS next FROM versions WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()
+            cur = conn.execute(
+                """INSERT INTO versions (project_id, version_number, config, theme_config, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (project_id, row["next"], json.dumps(config),
+                 json.dumps(theme_config) if theme_config else None, _now()),
             )
-            return cursor.lastrowid
+            return cur.lastrowid
 
     @staticmethod
-    def get(version_id: int) -> Optional[Dict[str, Any]]:
-        """Get version by ID"""
+    def get(version_id: int) -> Optional[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-            row = cursor.fetchone()
-            if row:
-                data = dict(row)
-                data['config'] = json.loads(data['config'])
-                if data['theme_config']:
-                    data['theme_config'] = json.loads(data['theme_config'])
-                return data
-            return None
+            row = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,)).fetchone()
+            return VersionDB._hydrate(row) if row else None
 
     @staticmethod
-    def get_by_project(project_id: int) -> List[Dict[str, Any]]:
-        """Get all versions for a project"""
+    def latest_for_project(project_id: int) -> Optional[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
+            row = conn.execute(
+                "SELECT * FROM versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1",
+                (project_id,),
+            ).fetchone()
+            return VersionDB._hydrate(row) if row else None
+
+    @staticmethod
+    def list_for_project(project_id: int) -> list[dict]:
+        with get_db() as conn:
+            rows = conn.execute(
                 "SELECT * FROM versions WHERE project_id = ? ORDER BY version_number DESC",
-                (project_id,)
-            )
-            versions = []
-            for row in cursor.fetchall():
-                data = dict(row)
-                data['config'] = json.loads(data['config'])
-                if data['theme_config']:
-                    data['theme_config'] = json.loads(data['theme_config'])
-                versions.append(data)
-            return versions
+                (project_id,),
+            ).fetchall()
+            return [VersionDB._hydrate(r) for r in rows]
 
     @staticmethod
-    def update(version_id: int, **kwargs):
-        """Update version"""
+    def update(version_id: int, **fields: Any) -> None:
+        for key in ("config", "theme_config"):
+            if key in fields and isinstance(fields[key], (dict, list)):
+                fields[key] = json.dumps(fields[key])
         with get_db() as conn:
-            cursor = conn.cursor()
-            # Convert dicts to JSON strings
-            if 'config' in kwargs:
-                kwargs['config'] = json.dumps(kwargs['config'])
-            if 'theme_config' in kwargs and kwargs['theme_config']:
-                kwargs['theme_config'] = json.dumps(kwargs['theme_config'])
+            _update(conn, "versions", VersionDB.UPDATABLE, version_id, "id", fields)
 
-            fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
-            values = list(kwargs.values()) + [version_id]
-            cursor.execute(f"UPDATE versions SET {fields} WHERE id = ?", values)
+    @staticmethod
+    def _hydrate(row: sqlite3.Row) -> dict:
+        data = dict(row)
+        data["config"] = json.loads(data["config"])
+        data["theme_config"] = json.loads(data["theme_config"]) if data.get("theme_config") else None
+        return data
 
 
 class ConversationDB:
-    """Conversation database operations"""
-
     @staticmethod
-    def add_message(project_id: int, role: str, message: str, version_id: Optional[int] = None):
-        """Add a message to conversation"""
+    def add_message(project_id: int, role: str, content: str) -> None:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO conversations (project_id, version_id, role, message) VALUES (?, ?, ?, ?)",
-                (project_id, version_id, role, message)
+            conn.execute(
+                "INSERT INTO conversations (project_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                (project_id, role, content, _now()),
             )
 
     @staticmethod
-    def get_history(project_id: int, version_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Get conversation history"""
+    def get_history(project_id: int) -> list[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            if version_id:
-                cursor.execute(
-                    "SELECT * FROM conversations WHERE project_id = ? AND version_id = ? ORDER BY timestamp ASC",
-                    (project_id, version_id)
-                )
-            else:
-                cursor.execute(
-                    "SELECT * FROM conversations WHERE project_id = ? ORDER BY timestamp ASC",
-                    (project_id,)
-                )
-            return [dict(row) for row in cursor.fetchall()]
+            rows = conn.execute(
+                "SELECT role, content, created_at FROM conversations WHERE project_id = ? ORDER BY id ASC",
+                (project_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
 
-class PackageCacheDB:
-    """Package cache database operations"""
+class BuildDB:
+    UPDATABLE = {"status", "progress", "step", "log_path", "error", "boot_test", "updated_at"}
+    ACTIVE_STATUSES = ("queued", "running", "testing")
 
     @staticmethod
-    def add(package_name: str, version: Optional[str] = None,
-            cached_path: Optional[str] = None):
-        """Add package to cache"""
+    def create(build_id: str, project_id: int, version_id: int, log_path: str) -> None:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """INSERT OR REPLACE INTO package_cache
-                   (package_name, version, cached_path, last_used)
-                   VALUES (?, ?, ?, ?)""",
-                (package_name, version, cached_path, datetime.now().isoformat())
+            conn.execute(
+                """INSERT INTO builds (id, project_id, version_id, status, log_path, created_at, updated_at)
+                   VALUES (?, ?, ?, 'queued', ?, ?, ?)""",
+                (build_id, project_id, version_id, log_path, _now(), _now()),
             )
 
     @staticmethod
-    def get(package_name: str) -> Optional[Dict[str, Any]]:
-        """Get cached package"""
+    def get(build_id: str) -> Optional[dict]:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM package_cache WHERE package_name = ?", (package_name,))
-            row = cursor.fetchone()
+            row = conn.execute("SELECT * FROM builds WHERE id = ?", (build_id,)).fetchone()
+            return BuildDB._hydrate(row) if row else None
+
+    @staticmethod
+    def update(build_id: str, **fields: Any) -> None:
+        if "boot_test" in fields and isinstance(fields["boot_test"], dict):
+            fields["boot_test"] = json.dumps(fields["boot_test"])
+        fields["updated_at"] = _now()
+        with get_db() as conn:
+            _update(conn, "builds", BuildDB.UPDATABLE, build_id, "id", fields)
+
+    @staticmethod
+    def active_for_project(project_id: int) -> Optional[dict]:
+        with get_db() as conn:
+            row = conn.execute(
+                f"""SELECT * FROM builds WHERE project_id = ?
+                    AND status IN ({','.join('?' * len(BuildDB.ACTIVE_STATUSES))})
+                    ORDER BY created_at DESC LIMIT 1""",
+                (project_id, *BuildDB.ACTIVE_STATUSES),
+            ).fetchone()
+            return BuildDB._hydrate(row) if row else None
+
+    @staticmethod
+    def latest_for_project(project_id: int) -> Optional[dict]:
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM builds WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+                (project_id,),
+            ).fetchone()
+            return BuildDB._hydrate(row) if row else None
+
+    @staticmethod
+    def mark_stale_builds_failed() -> int:
+        """After a server restart no build subprocess survives; mark leftovers failed."""
+        with get_db() as conn:
+            cur = conn.execute(
+                f"""UPDATE builds SET status = 'failed',
+                    error = 'Build interrupted by server restart', updated_at = ?
+                    WHERE status IN ({','.join('?' * len(BuildDB.ACTIVE_STATUSES))})""",
+                (_now(), *BuildDB.ACTIVE_STATUSES),
+            )
+            conn.execute(
+                f"""UPDATE projects SET status = 'failed', updated_at = ?
+                    WHERE status = 'building' """,
+                (_now(),),
+            )
+            return cur.rowcount
+
+    @staticmethod
+    def _hydrate(row: sqlite3.Row) -> dict:
+        data = dict(row)
+        data["boot_test"] = json.loads(data["boot_test"]) if data.get("boot_test") else None
+        return data
+
+
+class PackageDB:
+    @staticmethod
+    def replace_all(rows: list[tuple]) -> None:
+        """rows: (name, version, installed_size_kb, download_size_bytes, section, description)"""
+        with get_db() as conn:
+            conn.execute("DELETE FROM packages")
+            conn.executemany(
+                "INSERT OR REPLACE INTO packages VALUES (?, ?, ?, ?, ?, ?)", rows
+            )
+
+    @staticmethod
+    def get(name: str) -> Optional[dict]:
+        with get_db() as conn:
+            row = conn.execute("SELECT * FROM packages WHERE name = ?", (name,)).fetchone()
             return dict(row) if row else None
 
     @staticmethod
-    def update_last_used(package_name: str):
-        """Update last used timestamp"""
+    def get_many(names: list[str]) -> dict[str, dict]:
+        if not names:
+            return {}
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE package_cache SET last_used = ? WHERE package_name = ?",
-                (datetime.now().isoformat(), package_name)
-            )
+            placeholders = ",".join("?" * len(names))
+            rows = conn.execute(
+                f"SELECT * FROM packages WHERE name IN ({placeholders})", names
+            ).fetchall()
+            return {r["name"]: dict(r) for r in rows}
+
+    @staticmethod
+    def search(query: str, limit: int = 25) -> list[dict]:
+        with get_db() as conn:
+            rows = conn.execute(
+                """SELECT * FROM packages WHERE name LIKE ? ORDER BY
+                   CASE WHEN name = ? THEN 0 WHEN name LIKE ? THEN 1 ELSE 2 END, name LIMIT ?""",
+                (f"%{query}%", query, f"{query}%", limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    @staticmethod
+    def count() -> int:
+        with get_db() as conn:
+            return conn.execute("SELECT COUNT(*) AS n FROM packages").fetchone()["n"]
+
+
+class MetaDB:
+    @staticmethod
+    def get(key: str) -> Optional[str]:
+        with get_db() as conn:
+            row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+            return row["value"] if row else None
+
+    @staticmethod
+    def set(key: str, value: str) -> None:
+        with get_db() as conn:
+            conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value))

@@ -1,87 +1,89 @@
-"""
-Text-to-Linux-OS Builder - Main FastAPI Application
-"""
-# Load environment variables BEFORE importing other modules
-from dotenv import load_dotenv
-load_dotenv()
+"""Text-to-Linux-OS Builder — FastAPI application."""
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import logging
-import os
+from fastapi.staticfiles import StaticFiles
 
-from backend.database.db import init_db
-from backend.api import chatbot, builder, projects
+from backend.config import get_settings
+from backend.database.db import BuildDB, init_db
+from backend.services import debian_packages, livebuild, qemu_test
 
-# Configure logging
 logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=get_settings().log_level,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
-
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+
+async def _background_index_sync() -> None:
+    try:
+        await debian_packages.sync_index()
+    except Exception as exc:
+        logger.warning("Package index sync failed (will retry on demand): %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    settings.ensure_directories()
+    init_db()
+
+    stale = BuildDB.mark_stale_builds_failed()
+    if stale:
+        logger.info("Marked %d interrupted build(s) as failed after restart", stale)
+
+    if not settings.anthropic_api_key:
+        logger.warning("ANTHROPIC_API_KEY not set — the AI wizard will not work")
+    if not livebuild.live_build_available():
+        logger.warning("live-build not found — ISO building requires the Docker container")
+    if not qemu_test.qemu_available():
+        logger.warning("qemu-system-x86_64 not found — boot testing disabled")
+
+    sync_task = asyncio.create_task(_background_index_sync())
+    yield
+    sync_task.cancel()
+
+
 app = FastAPI(
     title="Text-to-Linux-OS Builder",
-    description="AI-powered custom Linux ISO generator",
-    version="1.0.0"
+    description="AI-powered custom Linux ISO generator with built-in verification and USB flashing",
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routers
-app.include_router(chatbot.router)
-app.include_router(builder.router)
+from backend.api import builds, chat, packages, projects  # noqa: E402
+
+app.include_router(chat.router)
+app.include_router(builds.router)
 app.include_router(projects.router)
+app.include_router(packages.router)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    logger.info("Starting Text-to-Linux-OS Builder")
-
-    # Initialize database
-    init_db()
-    logger.info("Database initialized")
-
-    # Check for required environment variables
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        logger.warning("ANTHROPIC_API_KEY not set - chatbot will not work")
-
-    # Create required directories
-    os.makedirs("./builds", exist_ok=True)
-    os.makedirs("./cache/packages", exist_ok=True)
-    os.makedirs("./data", exist_ok=True)
-
-    logger.info("Application startup complete")
+app.mount("/static", StaticFiles(directory=get_settings().frontend_dir), name="static")
 
 
 @app.get("/")
-async def root():
-    """Serve the main application page"""
-    return FileResponse("frontend/index.html")
+async def root() -> FileResponse:
+    return FileResponse(get_settings().frontend_dir / "index.html")
 
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint"""
+async def health() -> dict:
     return {
         "status": "healthy",
-        "service": "text-to-linux-os-builder",
-        "version": "1.0.0"
+        "version": "2.0.0",
+        "live_build": livebuild.live_build_available(),
+        "qemu": qemu_test.qemu_available(),
     }
 
 

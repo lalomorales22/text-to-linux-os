@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   app:
-    # Force amd64 platform for Apple Silicon Macs to enable building amd64 ISOs
+    # Force amd64 so Apple Silicon Macs build x86_64 ISOs (via Rosetta emulation)
     platform: linux/amd64
     build:
       context: ..
@@ -15,40 +13,31 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount source code for development
+      # Source mounted for development convenience
       - ../backend:/app/backend
       - ../frontend:/app/frontend
       - ../templates:/app/templates
 
-      # Persistent data volumes
+      # Persistent data
       - ../cache:/app/cache
       - ../data:/app/data
-      
-      # Use a Docker volume for builds (not bind mount) to allow mknod operations
+
+      # Builds live in a Docker volume (not a bind mount) so debootstrap can
+      # mknod device nodes during the chroot bootstrap
       - builds_volume:/app/builds
-      
-      # Mount a directory to copy finished ISOs to host
-      - ../iso_output:/app/iso_output
     environment:
       - DATABASE_URL=sqlite:///./data/text-to-linux-os.db
       - MAX_ISO_SIZE_GB=3
       - BUILD_TIMEOUT_MINUTES=120
       - LOG_LEVEL=INFO
     restart: unless-stopped
-    # Privileged mode needed for live-build
+    # live-build needs privileged chroot operations
     privileged: true
-    # Security options for debootstrap
     security_opt:
       - apparmor:unconfined
     cap_add:
       - SYS_ADMIN
       - MKNOD
-    networks:
-      - text-to-linux-network
-
-networks:
-  text-to-linux-network:
-    driver: bridge
 
 volumes:
   builds_volume:

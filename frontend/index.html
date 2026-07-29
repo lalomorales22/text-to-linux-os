@@ -1,362 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text-to-Linux-OS Builder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Text-to-Linux — OS Foundry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
-    <!-- Dot Grid Background -->
-    <div class="dot-grid-bg"></div>
+  <div class="shell">
 
-    <!-- Main App Container - Widget Style Window -->
-    <div class="app-container">
-        <!-- Widget Window -->
-        <div class="widget-window">
-            <!-- Window Title Bar -->
-            <div class="window-titlebar">
-                <div class="window-controls">
-                    <span class="control close"></span>
-                    <span class="control minimize"></span>
-                    <span class="control maximize"></span>
+    <!-- ======================= left rail ======================= -->
+    <aside class="rail">
+      <div class="rail-mark" title="Text-to-Linux">
+        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+          <rect x="3" y="3" width="26" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          <path d="M9 12 L14 16 L9 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="16" y1="21" x2="23" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <nav class="rail-nav">
+        <button class="rail-btn active" data-nav="forge" title="Forge — build a new system">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v10m0 0-4-4m4 4 4-4M4 17h16v3H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Forge</span>
+        </button>
+        <button class="rail-btn" data-nav="gallery" title="Gallery — your systems">
+          <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="4" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="4" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="8" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="14" width="8" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          <span>Gallery</span>
+        </button>
+      </nav>
+      <div class="rail-foot" id="healthDot" title="Backend status"></div>
+    </aside>
+
+    <!-- ======================= main ======================= -->
+    <main class="main">
+
+      <!-- pipeline header -->
+      <header class="pipeline" id="pipeline">
+        <h1 class="wordmark">text-to-linux</h1>
+        <ol class="stages" role="list">
+          <li class="stage stage-configure" data-stage="configure"><span class="stage-dot"></span>Configure</li>
+          <li class="stage stage-build" data-stage="build"><span class="stage-dot"></span>Build</li>
+          <li class="stage stage-verify" data-stage="verify"><span class="stage-dot"></span>Verify</li>
+          <li class="stage stage-flash" data-stage="flash"><span class="stage-dot"></span>Flash</li>
+        </ol>
+        <div class="pipeline-project" id="pipelineProject"></div>
+      </header>
+
+      <!-- ============ FORGE VIEW ============ -->
+      <section class="view view-forge active" id="view-forge">
+        <div class="forge-grid">
+
+          <!-- chat column -->
+          <div class="chat-col panel">
+            <div class="chat-scroll" id="chatScroll">
+              <div class="chat-intro" id="chatIntro">
+                <p class="intro-kicker">A new operating system starts with a sentence.</p>
+                <h2 class="intro-title">Describe the machine.<br/>Get a bootable OS.</h2>
+                <p class="intro-body">Tell the wizard what hardware you have and what the system is for. It picks real Debian packages, checks they exist, and builds you an ISO you can verify and flash — all in here.</p>
+                <div class="intro-chips">
+                  <button class="chip" data-prompt="I have an old 2010 laptop with 2GB RAM and a hard drive. I want a light system just for web browsing and email.">Revive an old laptop</button>
+                  <button class="chip" data-prompt="Modern desktop, 16GB RAM, SSD. I want a Python and Node.js development machine with git and docker.">Dev workstation</button>
+                  <button class="chip" data-prompt="A small media machine for a TV: needs VLC, a browser, and not much else. 4GB RAM, older CPU.">TV media box</button>
                 </div>
-                <div class="window-title">
-                    <span class="app-title">text-to-linux</span>
-                    <span class="app-title-dim">.iso</span>
+              </div>
+              <div class="chat-messages" id="chatMessages"></div>
+            </div>
+            <form class="chat-input-row" id="chatForm">
+              <input id="chatInput" type="text" autocomplete="off" spellcheck="false"
+                     placeholder="Describe your hardware and what you need…" />
+              <button type="submit" class="btn btn-primary" id="chatSend">Send</button>
+            </form>
+          </div>
+
+          <!-- build sheet column -->
+          <div class="sheet-col">
+            <div class="panel sheet" id="buildSheet">
+              <div class="sheet-head">
+                <span class="sheet-eyebrow">Build sheet</span>
+                <span class="sheet-status" id="sheetStatus">empty</span>
+              </div>
+
+              <div class="sheet-empty" id="sheetEmpty">
+                Fills in as you talk. Hostname, hardware, packages — everything the ISO will be made of.
+              </div>
+
+              <div class="sheet-body hidden" id="sheetBody">
+                <div class="sheet-row">
+                  <div class="sheet-field"><label>Hostname</label><span class="mono" id="sheetHostname">—</span></div>
+                  <div class="sheet-field"><label>User</label><span class="mono" id="sheetUsername">—</span></div>
                 </div>
-                <div class="window-tabs">
-                    <button id="newProjectTab" class="tab active">
-                        <span class="tab-icon">+</span>
-                        New Project
-                    </button>
-                    <button id="galleryTab" class="tab">
-                        <span class="tab-icon">≡</span>
-                        Gallery
-                    </button>
+                <div class="sheet-field"><label>Use case</label><span id="sheetUseCase">—</span></div>
+                <div class="sheet-field"><label>Hardware</label><span id="sheetHardware">—</span></div>
+                <div class="sheet-field">
+                  <label>Packages <span class="count" id="sheetPkgCount"></span></label>
+                  <div class="pkg-list mono" id="sheetPackages"></div>
                 </div>
+                <div class="sheet-field">
+                  <label>Estimated ISO size</label>
+                  <div class="size-meter">
+                    <div class="size-bar"><div class="size-fill" id="sizeFill"></div></div>
+                    <span class="mono" id="sizeLabel">—</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- Window Content -->
-            <div class="window-content">
-                <!-- Welcome Screen -->
-                <div id="welcomeScreen" class="screen">
-                    <div class="welcome-content">
-                        <div class="terminal-header">
-                            <span class="prompt">$</span>
-                            <span class="typing-text">./create-custom-linux-iso</span>
-                            <span class="cursor">_</span>
-                        </div>
-
-                        <div class="feature-grid">
-                            <div class="feature-card">
-                                <div class="feature-icon">⟩_</div>
-                                <h3>AI-Guided Setup</h3>
-                                <p>Conversational wizard helps you select packages and configure your system</p>
-                            </div>
-
-                            <div class="feature-card">
-                                <div class="feature-icon">[#]</div>
-                                <h3>Random Themes</h3>
-                                <p>One-click theme randomizer for OpenBox, terminal, and boot screens</p>
-                            </div>
-
-                            <div class="feature-card">
-                                <div class="feature-icon">◉</div>
-                                <h3>Bootable ISOs</h3>
-                                <p>Download ready-to-use ISO files optimized for your needs</p>
-                            </div>
-                        </div>
-
-                        <button id="startChatBtn" class="start-btn">
-                            <span class="btn-text">Initialize Build Process</span>
-                            <span class="btn-arrow">→</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Chat Interface -->
-                <div id="chatInterface" class="screen hidden">
-                    <div class="chat-layout">
-                        <!-- Terminal Chat Panel -->
-                        <div class="terminal-panel">
-                            <div class="terminal-header-bar">
-                                <div class="terminal-title">
-                                    <span class="terminal-icon">⟩_</span>
-                                    config-wizard.sh
-                                </div>
-                                <div class="terminal-status">
-                                    <span class="status-dot online"></span>
-                                    AI Connected
-                                </div>
-                            </div>
-
-                            <div id="chatMessages" class="terminal-body">
-                                <!-- Messages will be inserted here -->
-                            </div>
-
-                            <div class="terminal-input-area">
-                                <span class="input-prompt">$</span>
-                                <input
-                                    type="text"
-                                    id="chatInput"
-                                    placeholder="Enter your response..."
-                                    class="terminal-input"
-                                    autocomplete="off"
-                                />
-                                <button id="sendBtn" class="send-btn">
-                                    <span>↵</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Side Panel -->
-                        <div class="side-panel">
-                            <!-- Theme Preview -->
-                            <div class="panel-section theme-section">
-                                <div class="section-header">
-                                    <span class="section-icon">[#]</span>
-                                    <h3>ISO Theme</h3>
-                                </div>
-                                <p class="section-desc">Colors for your Linux desktop</p>
-
-                                <div id="themePreview" class="theme-grid">
-                                    <div class="theme-color-item">
-                                        <label>Primary</label>
-                                        <div class="color-picker-wrapper">
-                                            <div id="previewPrimary" class="color-preview" data-color="primary"></div>
-                                            <input type="color" id="colorPrimary" class="color-input" />
-                                        </div>
-                                    </div>
-                                    <div class="theme-color-item">
-                                        <label>Secondary</label>
-                                        <div class="color-picker-wrapper">
-                                            <div id="previewSecondary" class="color-preview" data-color="secondary"></div>
-                                            <input type="color" id="colorSecondary" class="color-input" />
-                                        </div>
-                                    </div>
-                                    <div class="theme-color-item">
-                                        <label>Accent</label>
-                                        <div class="color-picker-wrapper">
-                                            <div id="previewAccent" class="color-preview" data-color="accent"></div>
-                                            <input type="color" id="colorAccent" class="color-input" />
-                                        </div>
-                                    </div>
-                                    <div class="theme-color-item">
-                                        <label>Background</label>
-                                        <div class="color-picker-wrapper">
-                                            <div id="previewBackground" class="color-preview" data-color="background"></div>
-                                            <input type="color" id="colorBackground" class="color-input" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button id="randomizeThemeBtn" class="action-btn secondary">
-                                    <span class="btn-icon">⟳</span>
-                                    Randomize
-                                </button>
-                            </div>
-
-                            <!-- ISO Size -->
-                            <div class="panel-section size-section">
-                                <div class="section-header">
-                                    <span class="section-icon">◉</span>
-                                    <h3>ISO Size</h3>
-                                </div>
-                                <div class="size-display">
-                                    <span id="sizeEstimate" class="size-value">~0 MB</span>
-                                    <span class="size-target">/ 3 GB</span>
-                                </div>
-                                <div class="size-bar-container">
-                                    <div id="sizeBar" class="size-bar"></div>
-                                </div>
-                            </div>
-
-                            <!-- Build Button -->
-                            <button id="buildBtn" class="action-btn primary build-btn" disabled>
-                                <span class="btn-icon">▶</span>
-                                Build ISO
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Build Progress Screen -->
-                <div id="buildScreen" class="screen hidden">
-                    <div class="build-container">
-                        <div class="build-header">
-                            <h2>Building Your ISO</h2>
-                            <div class="build-progress-info">
-                                <span id="buildStep">Initializing...</span>
-                                <span id="buildProgress">0%</span>
-                            </div>
-                        </div>
-
-                        <div class="build-progress-bar">
-                            <div id="buildProgressBar" class="progress-fill"></div>
-                        </div>
-
-                        <div class="build-ascii">
-                            <pre id="asciiArt">
-████████╗███████╗██╗  ██╗████████╗    ████████╗ ██████╗
-╚══██╔══╝██╔════╝╚██╗██╔╝╚══██╔══╝    ╚══██╔══╝██╔═══██╗
-   ██║   █████╗   ╚███╔╝    ██║          ██║   ██║   ██║
-   ██║   ██╔══╝   ██╔██╗    ██║          ██║   ██║   ██║
-   ██║   ███████╗██╔╝ ██╗   ██║          ██║   ╚██████╔╝
-   ╚═╝   ╚══════╝╚═╝  ╚═╝   ╚═╝          ╚═╝    ╚═════╝
-
-██╗     ██╗███╗   ██╗██╗   ██╗██╗  ██╗     ██████╗ ███████╗
-██║     ██║████╗  ██║██║   ██║╚██╗██╔╝    ██╔═══██╗██╔════╝
-██║     ██║██╔██╗ ██║██║   ██║ ╚███╔╝     ██║   ██║███████╗
-██║     ██║██║╚██╗██║██║   ██║ ██╔██╗     ██║   ██║╚════██║
-███████╗██║██║ ╚████║╚██████╔╝██╔╝ ██╗    ╚██████╔╝███████║
-╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝     ╚═════╝ ╚══════╝
-                            </pre>
-                        </div>
-
-                        <div class="build-logs-container">
-                            <div class="logs-header">
-                                <span class="section-icon">⟩_</span>
-                                Build Output
-                            </div>
-                            <div id="buildLogs" class="build-logs">
-                                <!-- Logs will be inserted here -->
-                            </div>
-                        </div>
-
-                        <div id="downloadSection" class="download-section hidden">
-                            <div class="success-message">
-                                <span class="success-icon">✓</span>
-                                Build Complete!
-                            </div>
-                            <div class="download-actions">
-                                <button id="downloadBtn" class="action-btn primary">
-                                    <span class="btn-icon">↓</span>
-                                    Download ISO
-                                </button>
-                                <button id="backToGalleryBtn" class="action-btn secondary">
-                                    Back to Gallery
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Project Gallery -->
-                <div id="galleryScreen" class="screen hidden">
-                    <div class="gallery-layout">
-                        <!-- Sidebar -->
-                        <div class="gallery-sidebar">
-                            <div class="sidebar-header">
-                                <span class="section-icon">≡</span>
-                                <h3>Projects</h3>
-                            </div>
-                            <div id="projectsList" class="projects-list">
-                                <!-- Project items will be inserted here -->
-                            </div>
-                            <button id="createFirstProject" class="action-btn secondary new-project-btn">
-                                <span class="btn-icon">+</span>
-                                New Project
-                            </button>
-                        </div>
-
-                        <!-- Project Detail View -->
-                        <div class="gallery-main">
-                            <div id="projectDetail" class="project-detail">
-                                <div id="emptyState" class="empty-state">
-                                    <div class="empty-icon">◇</div>
-                                    <p>Select a project to view details</p>
-                                    <p class="empty-hint">or create a new one</p>
-                                </div>
-
-                                <div id="projectView" class="project-view hidden">
-                                    <div class="project-header">
-                                        <div class="project-title-area">
-                                            <h2 id="projectName" class="project-name"></h2>
-                                            <button id="renameBtn" class="icon-btn" title="Rename">✎</button>
-                                        </div>
-                                        <div id="renameForm" class="rename-form hidden">
-                                            <input type="text" id="renameInput" class="rename-input" />
-                                            <button id="saveRenameBtn" class="icon-btn save">✓</button>
-                                            <button id="cancelRenameBtn" class="icon-btn cancel">✕</button>
-                                        </div>
-                                        <div class="project-meta">
-                                            <span id="projectStatus" class="status-badge"></span>
-                                            <span id="projectVersion" class="version-badge"></span>
-                                        </div>
-                                    </div>
-
-                                    <div class="project-info-grid">
-                                        <div class="info-card">
-                                            <div class="info-label">Created</div>
-                                            <div id="projectCreated" class="info-value"></div>
-                                        </div>
-                                        <div class="info-card">
-                                            <div class="info-label">Updated</div>
-                                            <div id="projectUpdated" class="info-value"></div>
-                                        </div>
-                                        <div class="info-card">
-                                            <div class="info-label">Versions</div>
-                                            <div id="projectVersionCount" class="info-value"></div>
-                                        </div>
-                                        <div class="info-card">
-                                            <div class="info-label">ISO Size</div>
-                                            <div id="projectSize" class="info-value"></div>
-                                        </div>
-                                    </div>
-
-                                    <div class="project-theme-preview">
-                                        <h4>Theme</h4>
-                                        <div id="projectThemeColors" class="theme-colors-display">
-                                            <!-- Theme colors will be shown here -->
-                                        </div>
-                                    </div>
-
-                                    <!-- Build Progress Section -->
-                                    <div id="projectBuildProgress" class="project-build-progress hidden">
-                                        <h4>Build Progress</h4>
-                                        <div class="build-progress-bar-container">
-                                            <div id="projectProgressBar" class="build-progress-bar"></div>
-                                        </div>
-                                        <div id="projectBuildStatus" class="build-status-text">Initializing...</div>
-                                        <div id="projectBuildLogs" class="project-build-logs">
-                                            <!-- Build logs will appear here -->
-                                        </div>
-                                    </div>
-
-                                    <div class="project-actions">
-                                        <button id="viewDownloadBtn" class="action-btn primary">
-                                            <span class="btn-icon">↓</span>
-                                            Download ISO
-                                        </button>
-                                        <button id="viewContinueBtn" class="action-btn secondary">
-                                            Continue Editing
-                                        </button>
-                                        <button id="viewRetryBtn" class="action-btn warning hidden">
-                                            Retry Build
-                                        </button>
-                                        <button id="viewDeleteBtn" class="action-btn danger">
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="panel theme-panel">
+              <div class="sheet-head">
+                <span class="sheet-eyebrow">Desktop theme</span>
+                <button class="btn btn-ghost btn-sm" id="randomizeTheme">Randomize</button>
+              </div>
+              <div class="swatch-row" id="swatchRow"></div>
             </div>
+
+            <button class="btn btn-build" id="buildBtn" disabled>Build ISO</button>
+            <p class="build-hint" id="buildHint">The build button unlocks once the configuration is confirmed.</p>
+          </div>
         </div>
+      </section>
+
+      <!-- ============ BUILD VIEW ============ -->
+      <section class="view view-build" id="view-build">
+        <div class="build-wrap">
+          <div class="panel build-status-panel">
+            <div class="build-status-top">
+              <div>
+                <span class="sheet-eyebrow" id="buildEyebrow">Building</span>
+                <h2 class="build-step" id="buildStep">Preparing…</h2>
+              </div>
+              <div class="build-actions">
+                <button class="btn btn-ghost" id="cancelBuildBtn">Cancel build</button>
+              </div>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="buildProgressFill"></div></div>
+            <div class="progress-meta">
+              <span id="buildPercent" class="mono">0%</span>
+              <span id="buildTimer" class="mono"></span>
+            </div>
+          </div>
+
+          <details class="panel log-panel" id="logPanel" open>
+            <summary>Build log</summary>
+            <pre class="log-body mono" id="logBody"></pre>
+          </details>
+
+          <!-- verify results -->
+          <div class="panel verify-panel hidden" id="verifyPanel">
+            <span class="sheet-eyebrow">Verification</span>
+            <div class="verify-grid" id="verifyGrid"></div>
+          </div>
+
+          <!-- completion actions -->
+          <div class="done-row hidden" id="doneRow">
+            <button class="btn btn-primary" id="downloadBtn">Download ISO</button>
+            <button class="btn btn-flash" id="openFlashBtn">Flash to USB</button>
+            <button class="btn btn-ghost" id="backToForgeBtn">Back to Forge</button>
+          </div>
+
+          <div class="panel fail-panel hidden" id="failPanel">
+            <span class="sheet-eyebrow danger">Build failed</span>
+            <p class="fail-text" id="failText"></p>
+            <div class="done-row">
+              <button class="btn btn-primary" id="retryBtn">Fix in chat</button>
+              <button class="btn btn-ghost" id="failBackBtn">Back to Forge</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GALLERY VIEW ============ -->
+      <section class="view view-gallery" id="view-gallery">
+        <div class="gallery-wrap">
+          <div class="gallery-head">
+            <h2>Your systems</h2>
+            <button class="btn btn-primary" id="newSystemBtn">New system</button>
+          </div>
+          <div class="gallery-empty hidden" id="galleryEmpty">
+            <p>No systems yet.</p>
+            <p class="dim">Head to the Forge and describe one to get started.</p>
+          </div>
+          <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ FLASH DRAWER ============ -->
+  <div class="drawer-backdrop hidden" id="flashBackdrop"></div>
+  <aside class="drawer hidden" id="flashDrawer" aria-label="Flash to USB">
+    <div class="drawer-head">
+      <h3>Flash to USB</h3>
+      <button class="icon-btn" id="closeFlashBtn" aria-label="Close">&times;</button>
     </div>
+    <div class="drawer-body" id="flashBody">
 
-    <!-- Notification Container -->
-    <div id="notificationContainer" class="notification-container"></div>
+      <!-- step: helper not found -->
+      <div class="flash-step" id="flashStepHelper">
+        <p class="flash-lede">Flashing writes directly to a USB drive, so it runs on your computer — not in the browser. Start the helper in a terminal:</p>
+        <pre class="mono cmd-box">sudo python3 helper/flash_helper.py</pre>
+        <p class="dim">Run it from the project folder. Waiting for the helper…</p>
+        <div class="helper-wait"><span class="pulse-dot"></span> Looking for helper on this machine</div>
+      </div>
 
-    <!-- Scripts -->
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/chatbot.js"></script>
-    <script src="/static/js/theme-randomizer.js"></script>
-    <script src="/static/js/project-gallery.js"></script>
+      <!-- step: pairing -->
+      <div class="flash-step hidden" id="flashStepPair">
+        <p class="flash-lede">Helper found. Enter the 6-digit pairing code shown in its terminal window.</p>
+        <form id="pairForm" class="pair-row">
+          <input id="pairCode" class="mono pair-input" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off" />
+          <button class="btn btn-primary" type="submit">Pair</button>
+        </form>
+        <p class="flash-error hidden" id="pairError"></p>
+      </div>
+
+      <!-- step: pick drive -->
+      <div class="flash-step hidden" id="flashStepDrive">
+        <div class="flash-iso-summary" id="flashIsoSummary"></div>
+        <div class="drive-head">
+          <p class="flash-lede">Choose the USB drive to write. <strong>Everything on it will be erased.</strong></p>
+          <button class="btn btn-ghost btn-sm" id="refreshDrives">Rescan</button>
+        </div>
+        <div class="drive-list" id="driveList"></div>
+        <div class="drive-none hidden" id="driveNone">No removable drives detected. Plug in a USB stick and rescan.</div>
+        <button class="btn btn-flash hidden" id="confirmFlashBtn"></button>
+      </div>
+
+      <!-- step: flashing -->
+      <div class="flash-step hidden" id="flashStepProgress">
+        <span class="sheet-eyebrow" id="flashPhase">Writing</span>
+        <h3 class="flash-progress-title" id="flashMessage">Writing ISO to drive…</h3>
+        <div class="progress-track flash-track"><div class="progress-fill flash-fill" id="flashFill"></div></div>
+        <div class="progress-meta">
+          <span class="mono" id="flashPercent">0%</span>
+          <span class="mono" id="flashBytes"></span>
+        </div>
+        <button class="btn btn-ghost" id="cancelFlashBtn">Cancel</button>
+      </div>
+
+      <!-- step: done -->
+      <div class="flash-step hidden" id="flashStepDone">
+        <div class="flash-done-mark">✓</div>
+        <h3>Ready to boot</h3>
+        <p class="flash-lede" id="flashDoneText"></p>
+        <p class="dim">Plug it into the target machine, choose the USB drive in its boot menu, and your system comes up.</p>
+        <button class="btn btn-primary" id="flashCloseDoneBtn">Done</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>

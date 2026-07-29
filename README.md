@@ -1,515 +1,152 @@
-# Text-to-Linux-OS Builder
-<img width="1378" height="865" alt="Screenshot 2026-01-04 at 8 07 58 PM" src="https://github.com/user-attachments/assets/40605e7c-53ea-4df9-935a-af0cc45503dc" />
-<img width="1378" height="864" alt="Screenshot 2026-01-04 at 8 07 50 PM" src="https://github.com/user-attachments/assets/eb03762c-0369-4eb5-bee5-36b8bc518db0" />
-<img width="1379" height="868" alt="Screenshot 2026-01-04 at 8 07 41 PM" src="https://github.com/user-attachments/assets/80fa4646-e192-413c-9a97-752a2978a8be" />
+# Text-to-Linux — OS Foundry
 
-Build custom Debian-based Linux ISOs through an AI-powered chatbot wizard. Create bootable, minimal distributions tailored to your exact needs - from hardware optimization to package selection.
+Describe a machine in plain English. Get a verified, bootable Linux ISO — and flash it to a USB stick without ever leaving the app.
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Platform](https://img.shields.io/badge/platform-Docker-blue)
 
-## ✨ What's New in v1.1.0
+## What it does
 
-### 🎨 Complete UI Redesign
-- **Dark theme** with elegant black dot-grid background
-- **Widget-style window** wrapper with macOS-inspired controls
-- **Terminal-style chatbot** that feels like using a real command line
-- **Tab navigation** (New Project / Gallery) in the top-right corner
-- **ASCII art branding** for a retro-modern feel
+1. **Configure** — A streaming AI wizard (Claude) turns "old 2010 laptop, 2GB RAM, just for browsing" into a real Debian package selection. Every package is checked against the **actual Debian package index** (~64,000 packages, synced locally), so typos and nonexistent packages are caught in seconds — not 40 minutes into a build.
+2. **Build** — Debian live-build produces a hybrid BIOS+UEFI ISO with your hostname, user, packages, and a generated desktop theme (Openbox + tint2 + themed terminal).
+3. **Verify** — The finished ISO is **boot-tested in QEMU** automatically (BIOS and/or UEFI). You get a screenshot of your OS actually booting as proof, right in the UI.
+4. **Flash** — A small companion helper runs on your machine and gives you a built-in Etcher: detect USB drives, erase, write, **verify every byte against the ISO's SHA-256**, and eject. Plug the stick into an old laptop or desktop and boot your own OS.
 
-### 🎨 Enhanced Theme Customization
-- **Clickable color pickers** - click any color swatch to open a native color picker
-- **Live color editing** - instantly update theme colors
-- Randomize button for quick theme generation
+## What's new in 2.0
 
-### 📁 Improved Project Gallery
-- **Sidebar navigation** - browse projects by name in a left sidebar
-- **Project rename** - click the edit icon to rename projects inline
-- **Detailed project view** - see creation date, versions, ISO size, and theme colors
-- **Status indicators** - colored dots show project status at a glance
+Version 2.0 is a ground-up overhaul of the 1.x codebase:
 
-### 🔧 Bug Fixes
-- **Fixed Anthropic API compatibility** - updated to work with latest anthropic package (>=0.45.0)
-- **Fixed environment variable loading** - `.env` file now properly loads into Docker containers
-- **Fixed build paths** - resolved issues with relative paths in Docker causing build failures
-- **Fixed cross-architecture builds** - Apple Silicon Macs now properly build amd64 ISOs via Rosetta emulation
-- **Fixed debootstrap mknod errors** - builds now use Docker volumes with proper permissions
+- **Real package validation** — 1.x guessed package sizes from a hardcoded table of ~40 entries and couldn't tell whether a package existed. 2.0 syncs the actual Debian package index and validates everything against it before a build can start.
+- **QEMU boot verification** — new. Every build is boot-tested automatically, with screenshot proof in the UI.
+- **Built-in USB flashing** — new. The `helper/flash_helper.py` companion turns the app into a full Etcher replacement: detect, erase, write, verify, eject.
+- **Streaming AI wizard** — responses stream token-by-token, and the configuration is captured through a strict tool-use schema instead of scraping JSON out of chat text. Runs on `claude-opus-5` with server-side refusal fallbacks.
+- **Builds that survive restarts** — build state moved from an in-memory dict into SQLite, logs stream to files, the gallery reattaches to running builds, and Cancel actually kills the build process group (in 1.x it was a TODO).
+- **Real versioning** — each build snapshots the config as an incrementing version per project (1.x always wrote version 1).
+- **Pre-build dependency dry-run** — `apt --simulate` inside the container surfaces conflicts in seconds.
+- **Completely new UI** — the dot-grid/ASCII terminal look is gone, replaced by a color-coded pipeline design (Configure → Build → Verify → Flash) with a live build sheet. No frameworks, no build step, no CDN Tailwind.
+- **Harmonious theme generation** — HSL-derived palettes with proper Openbox/tint2/LXTerminal theming, replacing pure-random RGB.
+- **A test suite** — pytest coverage for the database layer, package validation, config generation, and theming ("coming soon" since 1.0).
 
-### 📊 Build Progress Tracking
-- **Live progress bar** in project gallery during builds
-- **Real-time log streaming** shows build output as it happens
-- **Retry builds** directly from the gallery view
+## Quick start
 
-## Features
+Requirements: Docker + Docker Compose, an [Anthropic API key](https://console.anthropic.com/), ~20GB free disk, 4GB+ RAM.
 
-### 🤖 AI-Powered Configuration
-- Conversational wizard powered by Claude Opus 4.5
-- Intelligent package suggestions based on use case
-- Automatic conflict detection
-- Real-time ISO size estimation
-- Hardware-optimized configurations
-
-### 🎨 Random Theme Generator
-- One-click theme randomization
-- Custom OpenBox window manager themes
-- Terminal color schemes
-- Panel/taskbar theming
-- GRUB bootloader customization
-- ASCII boot screen animations
-
-### 💿 Automated ISO Building
-- Debian live-build integration
-- Real-time build progress streaming
-- AI-powered error analysis and fixes
-- Package caching for faster rebuilds
-- Bootable ISO validation
-
-### 📦 Project Management
-- Multiple project support
-- Version control per project
-- Project gallery with sidebar navigation
-- Project renaming
-- Download management
-- Conversation history
-
-## Screenshots
-
-### Terminal-Style Chat Interface
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ⟩_ config-wizard.sh                    ● AI Connected      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│ [AI] System initialized.                                    │
-│                                                             │
-│ I'm your Linux ISO configuration assistant.                 │
-│ Let's build something great.                                │
-│                                                             │
-│ > 8GB RAM, modern Intel CPU, for Python development        │
-│                                                             │
-│ [AI] Perfect! I'll configure a development-focused system. │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│ $ Enter your response...                              [↵]  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Anthropic API key ([Get one here](https://console.anthropic.com/))
-- 20GB+ free disk space (for builds)
-- 4GB+ RAM recommended
-
-> **Note for Apple Silicon (M1/M2/M3) Macs**: The Docker container runs in amd64 emulation mode via Rosetta to enable building x86_64 Linux ISOs. Builds will be slower but fully functional.
-
-### Installation
+**One command (macOS or Linux):**
 
 ```bash
-# Clone the repository
 git clone https://github.com/lalomorales22/text-to-linux-os
 cd text-to-linux-os
+./install.sh
+```
 
-# Create environment file
+The installer checks Docker (and offers to install it on Linux), sets up your `.env`, asks for your API key, builds the container, and waits until the app is live. Use `./install.sh --no-start` to set up without launching.
+
+**Or manually:**
+
+```bash
 cp .env.example .env
+# put your key in .env:  ANTHROPIC_API_KEY=sk-ant-...
 
-# Add your Anthropic API key to .env
-echo "ANTHROPIC_API_KEY=your-key-here" >> .env
-
-# Start the application
 docker-compose -f docker/docker-compose.yml up --build
 ```
 
-The application will be available at **http://localhost:8000**
+Open **http://localhost:8000**, describe your machine, and press **Build ISO** when the wizard confirms your configuration.
 
-## Usage
+> **Apple Silicon (M1–M4) Macs:** the container runs in amd64 emulation so it can build x86_64 ISOs. Builds are slower but fully functional.
 
-### Creating Your First ISO
+## Flashing a USB drive
 
-1. **Open the application** at http://localhost:8000
-2. **Click "Initialize Build Process"** on the welcome screen
-3. **Chat with the AI wizard** in the terminal-style interface:
-   - Describe your hardware (RAM, CPU, storage)
-   - Specify your use case (development, browsing, media, etc.)
-   - Request specific packages and tools
-   - Review the configuration
+The web app runs inside Docker, which can't see USB hardware — so flashing is done by a tiny companion that runs on your actual machine (standard library Python, nothing to install):
 
-4. **Customize the theme** (optional):
-   - Click any color swatch to pick a custom color
-   - Or click "Randomize" for a random theme
-   - Preview shows OpenBox, terminal, and panel colors
-
-5. **Build the ISO**:
-   - Click "Build ISO" when ready
-   - Monitor real-time build progress
-   - Download when complete (typically 30-60 minutes)
-
-6. **Use your ISO**:
-   - Write to USB drive with tools like `dd`, Rufus, or Etcher
-   - Boot on target hardware
-   - Enjoy your custom Linux distribution!
-
-### Managing Projects
-
-- Click the **"Gallery"** tab to view all your projects
-- Projects are listed in the **left sidebar** with status indicators
-- Click a project to view its details
-- **Rename** projects by clicking the ✎ icon
-- **Download**, **continue editing**, or **delete** from the project view
-
-### Example Conversation
-
+```bash
+sudo python3 helper/flash_helper.py
 ```
-AI: How much RAM do you have?
-You: 8GB
 
-AI: What's your primary use case?
-You: Development with Python and Node.js
+It prints a 6-digit pairing code. Click **Flash to USB** in the app, enter the code, pick your drive, confirm — the app streams the ISO straight to the stick, verifies the written bytes, and ejects it.
 
-AI: Great! I'll include:
-- Python 3.11 and pip
-- Node.js and npm
-- Git for version control
-- VSCode (code-oss)
-- Firefox ESR for browsing
+Safety rails: the helper listens on localhost only, requires the pairing code, only ever lists removable/external drives (system disks are never shown or accepted), and refuses drives smaller than the ISO.
 
-Current size estimate: ~1.8GB
+## Booting your OS
 
-Would you like to add anything else?
-You: Add Docker
-
-AI: Added Docker! Final size: ~2.1GB
-Ready to build!
-```
+1. Plug the flashed USB stick into the target machine.
+2. Open its boot menu (usually F12, F10, Esc, or Del at power-on).
+3. Choose the USB drive. Your system boots straight into its desktop with your theme, packages, and auto-login user.
 
 ## Architecture
 
-### Technology Stack
-
-- **Backend**: Python 3.11 + FastAPI
-- **Frontend**: Vanilla JavaScript + Tailwind CSS
-- **Database**: SQLite
-- **Build System**: Debian live-build
-- **AI**: Anthropic Claude Opus 4.5
-- **Containerization**: Docker + Docker Compose
-- **Window Manager**: OpenBox (for generated ISOs)
-
-### Project Structure
+- **Backend** — Python 3.11 + FastAPI. Chat streams over SSE; ISO configuration is extracted through a strict tool-use schema (no JSON scraping); build state persists in SQLite so builds survive page reloads and server restarts; cancellation kills the real build process group.
+- **Package intelligence** — the Debian `Packages.gz` index for bookworm (main/contrib/non-free/non-free-firmware) is downloaded and cached, giving real existence checks, real installed sizes, fuzzy "did you mean" suggestions, and an `apt --simulate` dependency dry-run inside the container.
+- **Builder** — Debian live-build with generated config trees: package lists, auto-login hooks, hostname/user setup, Openbox/tint2/LXTerminal theming.
+- **Verification** — QEMU (with OVMF for UEFI) boots the ISO headlessly, watches the screen progress past the bootloader, and captures screenshots via the QEMU monitor.
+- **Frontend** — dependency-free ES modules + a hand-rolled design system. No frameworks, no build step.
+- **Flash helper** — single-file stdlib Python HTTP service; macOS (`diskutil`) and Linux (`lsblk`) drive detection, raw device writes, SHA-256 read-back verification.
 
 ```
-text-to-linux-os/
-├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── api/                 # API endpoints
-│   │   ├── chatbot.py       # AI chatbot logic
-│   │   ├── builder.py       # ISO build orchestration
-│   │   └── projects.py      # Project management
-│   ├── database/
-│   │   ├── models.py        # Pydantic models
-│   │   └── db.py            # SQLite operations
-│   ├── builder/
-│   │   ├── config_generator.py    # live-build configs
-│   │   ├── live_build.py          # Build orchestration
-│   │   ├── theme_generator.py     # Theme generation
-│   │   └── error_handler.py       # AI error analysis
-│   └── utils/
-│       └── validators.py    # Input validation
-├── frontend/
-│   ├── index.html           # Main UI
-│   ├── css/styles.css       # Custom styles
-│   └── js/
-│       ├── app.js           # Main controller
-│       ├── chatbot.js       # Chat interface
-│       ├── theme-randomizer.js    # Theme UI
-│       └── project-gallery.js     # Project gallery
-├── templates/
-│   ├── openbox/             # OpenBox configs
-│   ├── plymouth-ascii/      # Boot screen themes
-│   └── grub/                # GRUB themes
-├── docker/
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── entrypoint.sh
-└── builds/                  # Generated ISOs
+backend/
+├── main.py                  # FastAPI app (lifespan, static, health)
+├── config.py                # settings from env/.env
+├── api/                     # chat (SSE), builds (SSE logs), projects, packages
+├── services/
+│   ├── ai.py                # streaming wizard + tool-use config, failure analysis
+│   ├── debian_packages.py   # real package index sync/validation/dry-run
+│   ├── livebuild.py         # live-build config tree generation
+│   ├── orchestrator.py      # persistent builds, cancellation, ISO finalize+sha256
+│   ├── qemu_test.py         # boot verification + screenshots
+│   └── themes.py            # palette generation + desktop config writers
+└── database/                # SQLite layer (projects, versions, builds, package index)
+helper/flash_helper.py       # host-side USB flasher (run with sudo)
+frontend/                    # index.html, css/, js/ (ES modules)
+docker/                      # Dockerfile, compose, entrypoint
+tests/                       # pytest suite
+install.sh                   # universal macOS/Linux setup script
 ```
 
-## API Documentation
+## Key API endpoints
 
-Once running, visit http://localhost:8000/docs for interactive API documentation.
+Interactive docs at http://localhost:8000/docs.
 
-### Key Endpoints
-
-#### Chatbot
-- `POST /api/chat/message` - Send message to AI
-- `GET /api/chat/history/{project_id}` - Get conversation history
-
-#### Builder
-- `POST /api/build/start` - Start ISO build
-- `POST /api/build/retry/{project_id}` - Retry failed build
-- `GET /api/build/status/{build_id}` - Get build status
-- `GET /api/build/logs/{build_id}` - Get build logs
-- `POST /api/build/cancel/{build_id}` - Cancel running build
-
-#### Projects
-- `POST /api/projects/create` - Create new project
-- `GET /api/projects/list` - List all projects
-- `GET /api/projects/{id}` - Get project details
-- `GET /api/projects/download/{id}/v{version}` - Download ISO
-
-#### Themes
-- `POST /api/projects/theme/randomize` - Generate random theme
-- `POST /api/projects/{id}/theme/apply` - Apply theme to project
-
-## Configuration
-
-### Environment Variables
-
-```bash
-ANTHROPIC_API_KEY=your-api-key-here
-DATABASE_URL=sqlite:///./data/text-to-linux-os.db
-MAX_ISO_SIZE_GB=3
-BUILD_TIMEOUT_MINUTES=120
-LOG_LEVEL=INFO
-```
-
-### Default Packages
-
-Every ISO includes these essential packages:
-- `linux-image-amd64` - Linux kernel
-- `live-boot` - Live system support
-- `systemd` - Init system
-- `network-manager` - Network management
-- `xorg` - X Window System
-- `openbox` - Window manager
-- `tint2` - Panel/taskbar
-- `pcmanfm` - File manager
-- `lxterminal` - Terminal emulator
-- `firefox-esr` - Web browser
-
-## Advanced Usage
-
-### Custom Package Lists
-
-The AI can add any package from Debian repositories:
-
-```
-- Development: build-essential, gcc, make
-- Languages: python3, nodejs, ruby, go
-- Editors: vim, nano, code-oss
-- Tools: git, docker, curl, wget
-- Media: vlc, gimp, inkscape
-```
-
-### Theme Customization
-
-Themes control:
-- Window borders and title bars
-- Terminal color schemes (16 colors)
-- Panel background and active task highlighting
-- GRUB boot menu appearance
-- Plymouth boot animation
-
-### Build Process
-
-1. **Configuration Generation**: Creates live-build config files
-2. **Package Download**: Downloads and caches .deb packages
-3. **Root Filesystem Build**: Installs packages into chroot
-4. **Theme Application**: Applies custom themes
-5. **ISO Creation**: Generates bootable hybrid ISO
-6. **Validation**: Checks ISO integrity and size
-
-### Error Handling
-
-If a build fails:
-1. Logs are automatically analyzed by Claude AI
-2. Suggestions are provided (e.g., "Package X not found, try Y")
-3. Configuration can be updated and rebuild attempted
-4. All attempts are logged for debugging
+| Endpoint | What it does |
+|---|---|
+| `POST /api/chat/message` | Stream a wizard conversation turn (SSE) |
+| `POST /api/packages/validate` | Check packages against the real Debian index |
+| `POST /api/packages/dry-run` | Simulate the apt install to catch dependency conflicts |
+| `POST /api/builds` | Start a build (creates a new version snapshot) |
+| `GET /api/builds/{id}/logs/stream` | Live build log + progress (SSE) |
+| `POST /api/builds/{id}/cancel` | Actually kill the build process group |
+| `GET /api/builds/{id}/screenshot/{mode}` | QEMU boot-proof screenshot (bios/uefi) |
+| `GET /api/projects/{id}/download` | Download the ISO (SHA-256 in headers) |
+| `GET /api/projects/{id}/iso-info` | Metadata the flash helper uses |
 
 ## Development
 
-### Platform Requirements
-
-| Platform | Method | Notes |
-|----------|--------|-------|
-| **macOS** | Docker only ✅ | live-build doesn't exist on macOS. Docker runs in amd64 emulation mode. |
-| **Windows** | Docker or WSL2 | Use Docker Desktop, or WSL2 with Ubuntu for native builds. |
-| **Linux (Debian/Ubuntu)** | Docker or native | Can run directly with uvicorn after installing live-build. |
-
-### Running with Docker (All Platforms)
-
-This is the recommended method for all platforms:
+Run the backend natively (macOS/Linux — everything works except `lb build` and QEMU, which need the container):
 
 ```bash
-# Start the application
-docker-compose -f docker/docker-compose.yml up --build
-
-# Stop the application
-docker-compose -f docker/docker-compose.yml down
-```
-
-### Running Locally (Linux Only)
-
-> ⚠️ **Linux only** - This requires `live-build` and `debootstrap` which are only available on Debian/Ubuntu.
-
-```bash
-# Install system dependencies (Debian/Ubuntu)
-sudo apt-get update
-sudo apt-get install -y live-build debootstrap
-
-# Install Python dependencies
 pip install -r requirements.txt
-
-# Initialize database
-python -c "from backend.database.db import init_db; init_db()"
-
-# Run development server
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload --port 8000
 ```
 
-### Running Tests
+Run the tests:
 
 ```bash
-# Coming soon
-pytest tests/
+pip install pytest
+python -m pytest tests/
 ```
 
 ## Troubleshooting
 
-### Build Fails with "live-build (lb) command not found"
-
-This error occurs when live-build is not installed on your system. This application **requires** a Debian/Ubuntu Linux environment to build ISOs.
-
-**Solutions:**
-
-1. **Use Docker (Recommended)**: The Docker setup includes all required dependencies
-   ```bash
-   docker-compose -f docker/docker-compose.yml up --build
-   ```
-
-2. **Running on Linux**: Install live-build directly
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y live-build debootstrap
-   ```
-
-3. **Running on macOS/Windows**: Use Docker or a Linux VM
-   - macOS: live-build is not supported natively
-   - Windows: Use WSL2 with Ubuntu or Docker
-
-**Note**: The backend will automatically detect if live-build is missing and provide helpful error messages with installation instructions.
-
-### Build Fails with "Package not found"
-
-The AI will suggest alternatives. Common fixes:
-- `chrome` → `chromium` or `firefox-esr`
-- `vscode` → `code-oss`
-- `python` → `python3`
-
-### ISO Too Large
-
-- Remove unnecessary packages
-- Use minimal alternatives (e.g., `nano` instead of `vim`)
-- Skip large applications like LibreOffice
-
-### Docker Permission Issues
-
-```bash
-# Add your user to docker group
-sudo usermod -aG docker $USER
-
-# Or run with sudo
-sudo docker-compose up
-```
-
-### API Key Not Working
-
-1. Check `.env` file exists and contains valid key
-2. Restart docker containers: `docker-compose restart`
-3. Check logs: `docker-compose logs -f`
-
-### TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
-
-This error occurs with older versions of the anthropic package. The fix is included in v1.1.0:
-```bash
-# Update to the latest requirements
-pip install anthropic>=0.45.0 httpx>=0.27.0
-# Or rebuild Docker container
-docker-compose down && docker-compose up --build
-```
-
-### Build Fails with "foreign architecture(s)" on Apple Silicon
-
-This happens when running on Apple Silicon Macs (M1/M2/M3). The Docker container needs to run in x86_64 emulation mode, which is now configured by default in v1.1.0.
-
-If you see this error, ensure you're using the latest `docker-compose.yml` with `platform: linux/amd64`.
-
-### Build Fails with "cd: can't cd to ./builds/..."
-
-This was caused by relative paths not resolving correctly in Docker. Fixed in v1.1.0 with absolute path resolution.
-
-### Build Fails with "the following stage is required: bootstrap"
-
-This occurs when stale build files exist from a previous failed attempt. The build system now automatically cleans these files, but you can also manually clean:
-```bash
-docker-compose exec text-to-linux-os rm -rf /app/builds/*/\.build /app/builds/*/\.stage*
-```
-
-### Build Fails with "mknod: Operation not permitted"
-
-This error occurs when trying to create device nodes during debootstrap. The v1.1.0 docker-compose.yml uses a Docker volume (instead of bind mount) for the builds directory, which allows these operations. Make sure you're using the latest docker-compose.yml with:
-- `builds_volume:/app/builds` (Docker volume, not bind mount)
-- `privileged: true`
-- `security_opt: apparmor:unconfined`
-- `cap_add: SYS_ADMIN, MKNOD`
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- **"live-build (lb) is not installed"** — ISO building needs the Docker container (or a Debian/Ubuntu host with `live-build` + `debootstrap`). The UI and package validation work anywhere.
+- **Build fails on unknown packages** — the pre-build validator normally blocks these; if the AI suggested something odd, the failure analysis will name the package and a replacement.
+- **`mknod: Operation not permitted`** — make sure you're using the shipped `docker-compose.yml`: builds live in a Docker *volume* with `privileged: true` and the `SYS_ADMIN`/`MKNOD` capabilities.
+- **Boot test never passes** — under emulation (Apple Silicon) QEMU is slow; a "did not finish booting" verdict doesn't delete your ISO. Try the stick on real hardware, or raise `BOOT_TEST_TIMEOUT_SECONDS`.
+- **Flash helper not found** — it must run on the host (not in Docker), with `sudo`, while the web app is open on `localhost:8000`.
 
 ## License
 
-GPL-3.0 License - See LICENSE file for details
+GPL-3.0 — see LICENSE.
 
 ## Credits
 
-- **Built with**: [Anthropic Claude](https://www.anthropic.com/)
-- **Based on**: [Debian live-build](https://wiki.debian.org/DebianLive)
-- **UI Framework**: [Tailwind CSS](https://tailwindcss.com/)
-- **Icon Font**: System fonts
-
-## Roadmap
-
-- [ ] QEMU integration for ISO testing
-- [ ] Multi-architecture support (ARM64)
-- [ ] Persistent storage options
-- [ ] Custom kernel configurations
-- [ ] Cloud deployment templates
-- [ ] Pre-built ISO templates
-- [ ] Community package repository
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/lalomorales22/text-to-linux-os/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/lalomorales22/text-to-linux-os/discussions)
-
-## Acknowledgments
-
-Special thanks to:
-- The Debian live-build team
-- Anthropic for Claude API
-- The open-source community
-
----
-
-**Made with ❤️ by the Text-to-Linux-OS team**
+Built with [Anthropic Claude](https://www.anthropic.com/), [Debian live-build](https://wiki.debian.org/DebianLive), and [QEMU](https://www.qemu.org/).

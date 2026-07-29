@@ -1,93 +1,53 @@
-"""
-Database models for Text-to-Linux-OS Builder
-"""
-from datetime import datetime
-from typing import Optional, Dict, Any
+"""Pydantic request/response models shared by the API layer."""
+from typing import Any, Optional
+
 from pydantic import BaseModel, Field
 
 
-class Project(BaseModel):
-    """Project model"""
-    id: Optional[int] = None
-    name: str
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
-    current_version: int = 1
-    status: str = "draft"  # draft, building, completed, failed
-
-
-class Version(BaseModel):
-    """Version model for project versions"""
-    id: Optional[int] = None
-    project_id: int
-    version_number: int
-    config: Dict[str, Any]
-    theme_config: Optional[Dict[str, Any]] = None
-    created_at: datetime = Field(default_factory=datetime.now)
-    iso_path: Optional[str] = None
-    iso_size: Optional[int] = None
-    build_logs: Optional[str] = None
-
-
-class Conversation(BaseModel):
-    """Conversation model for chatbot messages"""
-    id: Optional[int] = None
-    project_id: int
-    version_id: Optional[int] = None
-    role: str  # user, assistant, system
-    message: str
-    timestamp: datetime = Field(default_factory=datetime.now)
-
-
-class PackageCache(BaseModel):
-    """Package cache model"""
-    id: Optional[int] = None
-    package_name: str
-    version: Optional[str] = None
-    download_url: Optional[str] = None
-    file_hash: Optional[str] = None
-    cached_path: Optional[str] = None
-    last_used: datetime = Field(default_factory=datetime.now)
-
-
-class ChatMessage(BaseModel):
-    """Chat message request/response model"""
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=8000)
     project_id: Optional[int] = None
-    message: str
-    role: str = "user"
 
 
-class BuildRequest(BaseModel):
-    """Build request model"""
-    project_id: int
-    version_id: Optional[int] = None
+class Hardware(BaseModel):
+    ram_gb: int = 4
+    cpu: str = "modern"          # modern | older | very-old
+    storage: str = "ssd"         # ssd | hdd
+    boot: str = "both"           # uefi | bios | both
+    architecture: str = "amd64"
 
 
-class BuildStatus(BaseModel):
-    """Build status response model"""
-    build_id: str
-    status: str  # queued, running, completed, failed
-    progress: int  # 0-100
-    current_step: str
-    logs: Optional[str] = None
-    iso_path: Optional[str] = None
-    error: Optional[str] = None
+class IsoConfig(BaseModel):
+    hostname: str = "custom-linux"
+    username: str = "user"
+    use_case: str = "general"
+    hardware: Hardware = Hardware()
+    packages: list[str] = []
+    notes: Optional[str] = None
 
 
 class ThemeConfig(BaseModel):
-    """Theme configuration model"""
-    openbox: Dict[str, Any]
-    terminal: Dict[str, Any]
-    panel: Dict[str, Any]
-    grub: Dict[str, Any]
-    wallpaper: Optional[Dict[str, Any]] = None
+    primary: str = "#6ee7b7"
+    secondary: str = "#3b82f6"
+    accent: str = "#f59e0b"
+    background: str = "#0d1117"
+    foreground: str = "#e6edf3"
+    terminal: dict[str, Any] = {}
 
 
-class ISOConfig(BaseModel):
-    """Complete ISO configuration"""
-    hardware: Dict[str, Any]
-    use_case: str
-    packages: list[str]
-    custom_tools: Optional[list[str]] = None
-    size_estimate_mb: int
-    theme: Optional[ThemeConfig] = None
+class BuildRequest(BaseModel):
+    project_id: int
+    version_id: Optional[int] = None
+    run_boot_test: bool = True
+
+
+class PackagesRequest(BaseModel):
+    packages: list[str] = Field(max_length=500)
+
+
+class RenameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ThemeApplyRequest(BaseModel):
+    theme: ThemeConfig
