@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import get_settings
-from backend.database.db import BuildDB, init_db
+from backend.database.db import BuildDB, MetaDB, init_db
 from backend.services import debian_packages, livebuild, qemu_test
 
 logging.basicConfig(
@@ -36,8 +36,9 @@ async def lifespan(app: FastAPI):
     if stale:
         logger.info("Marked %d interrupted build(s) as failed after restart", stale)
 
-    if not settings.anthropic_api_key:
-        logger.warning("ANTHROPIC_API_KEY not set — the AI wizard will not work")
+    if not (settings.anthropic_api_key or MetaDB.get("anthropic_api_key")):
+        logger.warning("No Anthropic API key configured — paste one in the app's "
+                       "Settings (gear icon) or set ANTHROPIC_API_KEY")
     if not livebuild.live_build_available():
         logger.warning("live-build not found — ISO building requires the Docker container")
     if not qemu_test.qemu_available():
@@ -62,12 +63,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from backend.api import builds, chat, packages, projects  # noqa: E402
+from backend.api import builds, chat, packages, projects, settings as settings_api  # noqa: E402
 
 app.include_router(chat.router)
 app.include_router(builds.router)
 app.include_router(projects.router)
 app.include_router(packages.router)
+app.include_router(settings_api.router)
 
 app.mount("/static", StaticFiles(directory=get_settings().frontend_dir), name="static")
 

@@ -143,12 +143,15 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-document.getElementById("newSystemBtn").addEventListener("click", () => {
+function startNewDistro() {
   state.projectId = null; state.config = null; state.theme = null;
   resetChat(); resetSheet(); setPipelineProject("");
   setPipeline({ configure: "active" });
   showView("forge");
   document.getElementById("chatInput").focus();
-});
+}
+
+document.getElementById("newSystemBtn").addEventListener("click", startNewDistro);
+on("new-distro", startNewDistro);
 
 on("view", (name) => { if (name === "gallery") loadGallery(); });

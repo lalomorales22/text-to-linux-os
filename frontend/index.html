@@ -31,6 +31,10 @@
           <span>Gallery</span>
         </button>
       </nav>
+      <button class="rail-btn rail-settings" id="settingsBtn" title="Settings — API key">
+        <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Settings</span>
+      </button>
       <div class="rail-foot" id="healthDot" title="Backend status"></div>
     </aside>
 
@@ -46,7 +50,10 @@
           <li class="stage stage-verify" data-stage="verify"><span class="stage-dot"></span>Verify</li>
           <li class="stage stage-flash" data-stage="flash"><span class="stage-dot"></span>Flash</li>
         </ol>
-        <div class="pipeline-project" id="pipelineProject"></div>
+        <div class="pipeline-right">
+          <div class="pipeline-project" id="pipelineProject"></div>
+          <button class="btn btn-ghost btn-compact" id="newDistroBtn" title="Start a fresh system">+ New distro</button>
+        </div>
       </header>
 
       <!-- ============ FORGE VIEW ============ -->
@@ -253,6 +260,27 @@
       </div>
     </div>
   </aside>
+
+  <!-- settings modal -->
+  <div class="modal-backdrop hidden" id="settingsModal">
+    <div class="modal panel">
+      <div class="sheet-head">
+        <span class="sheet-eyebrow">Settings</span>
+        <button class="btn btn-ghost btn-compact" id="closeSettingsBtn">Close</button>
+      </div>
+      <label class="modal-label" for="apiKeyInput">Anthropic API key</label>
+      <p class="modal-status" id="apiKeyStatus">Checking…</p>
+      <div class="modal-row">
+        <input id="apiKeyInput" type="password" placeholder="sk-ant-…"
+               autocomplete="off" spellcheck="false" />
+        <button class="btn btn-primary" id="saveApiKeyBtn">Save</button>
+      </div>
+      <p class="modal-note">The key is verified with Anthropic before it's saved, is stored
+        in the app's local database, and takes effect immediately — no restart needed.
+        Get one at <span class="mono">console.anthropic.com</span>. A key in
+        <span class="mono">.env</span> still works as a fallback.</p>
+    </div>
+  </div>
 
   <div class="toasts" id="toasts"></div>
 

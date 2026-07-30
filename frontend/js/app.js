@@ -4,13 +4,16 @@ import "./sheet.js";
 import "./build.js";
 import "./gallery.js";
 import "./flash.js";
-import { on, showView, setPipeline, setPipelineProject, state } from "./state.js";
+import "./settings.js";
+import { emit, on, showView, setPipeline, setPipelineProject, state } from "./state.js";
 import { api } from "./api.js";
 
-// rail navigation
-document.querySelectorAll(".rail-btn").forEach((btn) => {
+// rail navigation (the settings button has no data-nav — it opens the modal)
+document.querySelectorAll(".rail-btn[data-nav]").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.nav));
 });
+
+document.getElementById("newDistroBtn").addEventListener("click", () => emit("new-distro"));
 
 // a freshly created project gets a name derived from its config later;
 // until then show a placeholder in the pipeline header

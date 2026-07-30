@@ -170,6 +170,12 @@ input { font: inherit; color: inherit; }
 .stage.done { color: var(--dim); }
 .stage.done .stage-dot { background: var(--stage-color); box-shadow: none; }
 
+.pipeline-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .pipeline-project {
   font-size: 13px;
   color: var(--dim);
@@ -179,6 +185,53 @@ input { font: inherit; color: inherit; }
   text-overflow: ellipsis;
   max-width: 220px;
 }
+
+.btn-compact {
+  padding: 6px 12px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.rail-settings { margin-bottom: 10px; }
+
+/* settings modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 9, 0.72);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+.modal {
+  width: min(480px, calc(100vw - 40px));
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.modal-status { font-size: 12.5px; color: var(--dim); font-family: var(--font-mono); }
+.modal-status.ok { color: var(--verify); }
+.modal-status.missing { color: var(--danger); }
+.modal-row { display: flex; gap: 10px; }
+.modal-row input {
+  flex: 1;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.modal-row input:focus { outline: none; border-color: var(--configure); }
+.modal-note { font-size: 12.5px; color: var(--dim); line-height: 1.55; }
 
 /* ------------------------------------------------------------------ views */
 .view { display: none; flex: 1; min-height: 0; overflow: hidden; }

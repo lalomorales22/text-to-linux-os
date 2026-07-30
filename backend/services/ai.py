@@ -15,7 +15,7 @@ from typing import Any, AsyncIterator, Optional
 import anthropic
 
 from backend.config import get_settings
-from backend.database.db import ProjectDB
+from backend.database.db import MetaDB, ProjectDB
 from backend.services import debian_packages
 
 logger = logging.getLogger(__name__)
@@ -23,11 +23,22 @@ logger = logging.getLogger(__name__)
 _client: Optional[anthropic.AsyncAnthropic] = None
 
 
+def _resolve_api_key() -> Optional[str]:
+    """App-saved key (Settings page) wins; .env / environment is the fallback."""
+    return MetaDB.get("anthropic_api_key") or get_settings().anthropic_api_key or None
+
+
 def get_client() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=get_settings().anthropic_api_key or None)
+        _client = anthropic.AsyncAnthropic(api_key=_resolve_api_key(), max_retries=3)
     return _client
+
+
+def reset_client() -> None:
+    """Drop the cached client so the next call picks up a newly saved key."""
+    global _client
+    _client = None
 
 
 SYSTEM_PROMPT = """You are the configuration wizard for Text-to-Linux-OS, a tool that builds \

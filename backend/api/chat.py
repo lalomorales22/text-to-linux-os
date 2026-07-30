@@ -2,6 +2,7 @@
 import json
 import logging
 
+import anthropic
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -16,6 +17,24 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 def _sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Turn SDK exceptions into a sentence a person can act on."""
+    if isinstance(exc, anthropic.AuthenticationError):
+        return ("Anthropic rejected the API key. Open Settings (gear icon, "
+                "bottom left) and paste a valid key.")
+    if isinstance(exc, anthropic.RateLimitError):
+        return "Anthropic rate-limited the request — wait a few seconds and press Send again."
+    if isinstance(exc, anthropic.APIConnectionError):
+        return "Couldn't reach Anthropic's API — check your internet connection and try again."
+    if isinstance(exc, anthropic.APIStatusError) and exc.status_code >= 500:
+        return ("Anthropic's API had a temporary hiccup on their end. "
+                "Press Send again — these usually clear right away.")
+    if "api_key" in str(exc).lower():
+        return ("No Anthropic API key is configured. Open Settings (gear icon, "
+                "bottom left) and paste your key from console.anthropic.com.")
+    return f"Chat failed: {exc}"
 
 
 @router.post("/message")
@@ -44,7 +63,7 @@ async def send_message(req: ChatRequest) -> StreamingResponse:
                 yield _sse(event)
         except Exception as exc:
             logger.error("Chat stream failed: %s", exc, exc_info=True)
-            yield _sse({"type": "error", "message": f"Chat failed: {exc}"})
+            yield _sse({"type": "error", "message": _friendly_error(exc)})
         finally:
             if assistant_text.strip():
                 ConversationDB.add_message(project_id, "assistant", assistant_text)
