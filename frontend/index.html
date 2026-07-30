@@ -210,10 +210,19 @@
 
       <!-- step: helper not found -->
       <div class="flash-step" id="flashStepHelper">
-        <p class="flash-lede">Flashing writes directly to a USB drive, so it runs on your computer — not in the browser. Start the helper in a terminal:</p>
-        <pre class="mono cmd-box">sudo python3 helper/flash_helper.py</pre>
-        <p class="dim">Run it from the project folder. Waiting for the helper…</p>
-        <div class="helper-wait"><span class="pulse-dot"></span> Looking for helper on this machine</div>
+        <p class="flash-lede">Flashing writes directly to a USB drive, so it runs on your computer — not in the browser. Two ways to start the helper:</p>
+        <div class="helper-option">
+          <span class="helper-option-label">Easiest — double-click the launcher in the project folder:</span>
+          <pre class="mono cmd-box" id="launcherPath">start-flash-helper.command</pre>
+        </div>
+        <div class="helper-option">
+          <span class="helper-option-label">Or paste this into a terminal:</span>
+          <div class="cmd-row">
+            <pre class="mono cmd-box" id="helperCommand">sudo python3 helper/flash_helper.py</pre>
+            <button class="btn btn-ghost btn-compact" id="copyHelperCmd">Copy</button>
+          </div>
+        </div>
+        <div class="helper-wait"><span class="pulse-dot"></span> Looking for helper on this machine — I'll connect the moment it starts</div>
       </div>
 
       <!-- step: pairing -->

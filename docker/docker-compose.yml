@@ -26,6 +26,9 @@ services:
       # mknod device nodes during the chroot bootstrap
       - builds_volume:/app/builds
     environment:
+      # Host path of this repo (set automatically when compose runs from the
+      # repo root) — lets the UI show copy-paste-ready flash helper commands
+      - HOST_REPO_DIR=${PWD:-}
       - DATABASE_URL=sqlite:///./data/text-to-linux-os.db
       - MAX_ISO_SIZE_GB=3
       - BUILD_TIMEOUT_MINUTES=120

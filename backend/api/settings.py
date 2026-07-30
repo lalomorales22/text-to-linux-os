@@ -4,6 +4,9 @@ A key saved here is verified against Anthropic's API first, then stored in the
 app database (so it survives restarts) and takes effect immediately. A key in
 .env / the environment still works as a fallback.
 """
+import os
+import shlex
+
 import anthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -26,11 +29,21 @@ async def get_app_settings() -> dict:
     stored = MetaDB.get(API_KEY_META)
     env_key = get_settings().anthropic_api_key
     key = stored or env_key
+    repo = os.getenv("HOST_REPO_DIR", "").strip()
+    if repo:
+        quoted = shlex.quote(repo)
+        helper_command = f"cd {quoted} && sudo python3 helper/flash_helper.py"
+        launcher_path = f"{repo}/start-flash-helper.command"
+    else:
+        helper_command = "sudo python3 helper/flash_helper.py"
+        launcher_path = None
     return {
         "api_key_set": bool(key),
         "api_key_source": "app" if stored else ("env" if env_key else "none"),
         "api_key_hint": f"…{key[-4:]}" if key else None,
         "chat_model": get_settings().chat_model,
+        "flash_helper_command": helper_command,
+        "flash_launcher_path": launcher_path,
     }
 
 

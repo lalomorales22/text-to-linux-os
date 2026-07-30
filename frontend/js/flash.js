@@ -39,6 +39,16 @@ async function helperFetch(path, options = {}) {
   return data;
 }
 
+async function loadHelperHints() {
+  try {
+    const s = await api("/api/settings");
+    document.getElementById("helperCommand").textContent = s.flash_helper_command;
+    if (s.flash_launcher_path) {
+      document.getElementById("launcherPath").textContent = s.flash_launcher_path;
+    }
+  } catch { /* static fallback text stays */ }
+}
+
 export async function openFlash() {
   if (!state.projectId) return;
   try {
@@ -49,8 +59,19 @@ export async function openFlash() {
   }
   backdrop.classList.remove("hidden");
   drawer.classList.remove("hidden");
+  loadHelperHints();
   connectHelper();
 }
+
+document.getElementById("copyHelperCmd").addEventListener("click", async () => {
+  const cmd = document.getElementById("helperCommand").textContent;
+  try {
+    await navigator.clipboard.writeText(cmd);
+    toast("Command copied — paste it into Terminal");
+  } catch {
+    toast("Couldn't access the clipboard — select the command and copy it manually", "error");
+  }
+});
 
 function closeFlash() {
   backdrop.classList.add("hidden");

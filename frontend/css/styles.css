@@ -795,6 +795,17 @@ input { font: inherit; color: inherit; }
   user-select: all;
 }
 
+.helper-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.helper-option-label { font-size: 12.5px; color: var(--dim); }
+.cmd-row { display: flex; gap: 8px; align-items: stretch; }
+.cmd-row .cmd-box { flex: 1; margin: 0; }
+.cmd-row .btn { align-self: center; }
+
 .helper-wait {
   display: flex; align-items: center; gap: 10px;
   font-size: 13px; color: var(--dim);

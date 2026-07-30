@@ -58,13 +58,17 @@ Open **http://localhost:8000**, describe your machine, and press **Build ISO** w
 
 ## Flashing a USB drive
 
-The web app runs inside Docker, which can't see USB hardware — so flashing is done by a tiny companion that runs on your actual machine (standard library Python, nothing to install):
+The web app runs inside Docker, which can't see USB hardware — so flashing is done by a tiny companion that runs on your actual machine (standard library Python, nothing to install).
+
+**Easiest:** double-click **`start-flash-helper.command`** in the project folder (macOS opens it in Terminal automatically; on Linux run it from a terminal). Or run it by hand:
 
 ```bash
 sudo python3 helper/flash_helper.py
 ```
 
-It prints a 6-digit pairing code. Click **Flash to USB** in the app, enter the code, pick your drive, confirm — the app streams the ISO straight to the stick, verifies the written bytes, and ejects it.
+The Flash drawer in the app shows both options with a copy-paste-ready command. The helper prints a 6-digit pairing code. Click **Flash to USB** in the app, enter the code, pick your drive, confirm — the app streams the ISO straight to the stick, verifies the written bytes, and ejects it.
+
+No need to format the USB stick first: flashing writes the raw ISO over whatever partition scheme and filesystem are on the drive.
 
 Safety rails: the helper listens on localhost only, requires the pairing code, only ever lists removable/external drives (system disks are never shown or accepted), and refuses drives smaller than the ISO.
 
