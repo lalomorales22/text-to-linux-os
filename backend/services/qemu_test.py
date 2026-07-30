@@ -102,6 +102,11 @@ async def _boot_once(iso_path: Path, work_dir: Path, mode: str,
                 stderr = (await proc.stderr.read()).decode(errors="replace")[-500:]
                 return {"passed": False,
                         "message": f"VM exited early (code {proc.returncode}): {stderr}"}
+            # The bootloader menu may be waiting for a keypress — select the
+            # default entry so the boot actually proceeds. Harmless once the
+            # kernel is booting.
+            if not progressed:
+                await _monitor_send(monitor_path, "sendkey ret")
             frame = await _screendump(monitor_path, screenshot_ppm)
             if frame:
                 if first_frame is None:
@@ -131,6 +136,22 @@ async def _boot_once(iso_path: Path, work_dir: Path, mode: str,
     return {"passed": False, "screenshot": screenshot,
             "message": "Screen never progressed past the initial frame within the timeout "
                        "(may be too slow under emulation — try booting on real hardware)"}
+
+
+async def _monitor_send(monitor_path: Path, command: str) -> None:
+    """Fire a QEMU monitor command (e.g. sendkey), best-effort."""
+    def _send() -> None:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                sock.settimeout(10)
+                sock.connect(str(monitor_path))
+                sock.recv(4096)  # banner
+                sock.sendall(f"{command}\n".encode())
+                sock.recv(4096)
+        except OSError:
+            pass
+
+    await asyncio.to_thread(_send)
 
 
 async def _screendump(monitor_path: Path, out_path: Path) -> Optional[bytes]:

@@ -37,6 +37,13 @@ def test_generate_config_tree(tmp_path):
     assert hook.stat().st_mode & 0o111                   # executable
     assert "autologin-user=devuser" in hook.read_text()
 
+    # boot menus must auto-boot instead of waiting forever for a keypress
+    timeout_hook = config_dir / "hooks" / "live" / "9000-boot-timeout.hook.binary"
+    assert timeout_hook.stat().st_mode & 0o111
+    hook_text = timeout_hook.read_text()
+    assert "timeout 50" in hook_text                     # syslinux: 5 seconds
+    assert "set timeout=5" in hook_text                  # grub: 5 seconds
+
     assert (config_dir / "includes.chroot" / "etc" / "hostname").read_text().strip() == "my-custom-box"
     # theme files landed in the tree
     assert (config_dir / "includes.chroot" / "usr/share/themes/TextToLinux/openbox-3/themerc").exists()

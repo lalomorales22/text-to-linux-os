@@ -34,6 +34,7 @@ def generate_config_tree(config: dict[str, Any], theme: dict[str, Any] | None,
     _write_auto_config(config, build_dir)
     _write_package_list(config, config_dir)
     _write_setup_hook(config, config_dir)
+    _write_boot_timeout_hook(config_dir)
     _write_system_includes(config, chroot)
     apply_theme_to_config(theme or generate_random_theme(), config_dir)
     _copy_templates(config_dir)
@@ -122,6 +123,36 @@ chmod +x /etc/skel/.config/openbox/autostart
 echo "Text-to-Linux-OS setup complete"
 """
     path = config_dir / "hooks" / "live" / "0010-setup.hook.chroot"
+    path.write_text(hook)
+    path.chmod(0o755)
+
+
+def _write_boot_timeout_hook(config_dir: Path) -> None:
+    """live-build's default boot menus wait forever for a keypress (timeout 0),
+    which stalls both the QEMU verification and unattended boots on real
+    hardware. This binary-stage hook (cwd = the staged ISO tree) patches the
+    syslinux/isolinux and GRUB configs to auto-boot the default entry after 5s.
+    """
+    hook = """#!/bin/sh
+set -e
+for cfg in isolinux/isolinux.cfg syslinux/syslinux.cfg; do
+    if [ -f "$cfg" ]; then
+        if grep -q '^timeout ' "$cfg"; then
+            sed -i 's/^timeout .*/timeout 50/' "$cfg"
+        else
+            printf 'timeout 50\\n' >> "$cfg"
+        fi
+    fi
+done
+if [ -f boot/grub/grub.cfg ]; then
+    if grep -q '^set timeout=' boot/grub/grub.cfg; then
+        sed -i 's/^set timeout=.*/set timeout=5/' boot/grub/grub.cfg
+    else
+        printf '\\nset timeout=5\\n' >> boot/grub/grub.cfg
+    fi
+fi
+"""
+    path = config_dir / "hooks" / "live" / "9000-boot-timeout.hook.binary"
     path.write_text(hook)
     path.chmod(0o755)
 

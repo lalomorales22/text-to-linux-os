@@ -151,6 +151,10 @@
           <div class="panel verify-panel hidden" id="verifyPanel">
             <span class="sheet-eyebrow">Verification</span>
             <div class="verify-grid" id="verifyGrid"></div>
+            <p class="verify-note">USB prep: no formatting needed. Flashing writes the raw ISO
+              straight to the drive, replacing whatever partition scheme and filesystem are on it —
+              the ISO carries its own hybrid BIOS+UEFI layout. A verification miss here doesn't mean
+              the ISO is broken: QEMU under emulation is very slow, and real hardware is the true test.</p>
           </div>
 
           <!-- completion actions -->

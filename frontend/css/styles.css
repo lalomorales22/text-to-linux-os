@@ -587,6 +587,15 @@ input { font: inherit; color: inherit; }
 .boot-caption .bad { color: var(--danger); }
 .boot-caption .skip { color: var(--faint); }
 
+.verify-note {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .done-row { display: flex; gap: 12px; flex-wrap: wrap; }
 
 .fail-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
