@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from backend.database.db import ConversationDB, ProjectDB
+from backend.database.db import BuildDB, ConversationDB, ProjectDB
 from backend.database.models import ChatRequest
 from backend.services import ai
 
@@ -31,12 +31,14 @@ async def send_message(req: ChatRequest) -> StreamingResponse:
 
     ConversationDB.add_message(project_id, "user", req.message)
     history = ConversationDB.get_history(project_id)
+    last_build = BuildDB.latest_for_project(project_id)
 
     async def event_stream():
         yield _sse({"type": "project", "project_id": project_id})
         assistant_text = ""
         try:
-            async for event in ai.stream_chat(project_id, history, project.get("draft_config")):
+            async for event in ai.stream_chat(project_id, history,
+                                              project.get("draft_config"), last_build):
                 if event["type"] == "done":
                     assistant_text = event.pop("full_text", "")
                 yield _sse(event)

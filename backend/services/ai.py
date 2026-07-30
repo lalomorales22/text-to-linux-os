@@ -53,6 +53,11 @@ alternatives.
 When you set ready=true, tell them to press "Build ISO".
 - Old hardware guidance: for machines with <2GB RAM avoid heavy browsers (suggest \
 falkon or dillo); prefer bios boot mode for pre-2010 machines.
+- If a <latest_build_result> block appears in the conversation, the most recent ISO \
+build for this project failed — you have the failure analysis and a log excerpt right \
+there. Do not say you can't see the build. Explain the root cause in one or two \
+sentences, then call update_config with the corrected package list. Packages whose \
+postinst compiles kernel modules (dkms packages) are the most common build breaker.
 """
 
 UPDATE_CONFIG_TOOL = {
@@ -113,10 +118,35 @@ FALLBACK_OPTS = {
 }
 
 
-def _build_api_messages(history: list[dict], draft_config: Optional[dict]) -> list[dict]:
+def _build_failure_context(last_build: Optional[dict]) -> Optional[str]:
+    """Summarize the most recent failed build so the wizard can actually see it."""
+    if not last_build or last_build.get("status") != "failed":
+        return None
+    parts = [
+        f"The most recent ISO build for this project FAILED at {last_build.get('progress', 0)}% "
+        f"(step: {last_build.get('step', 'unknown')}).",
+    ]
+    if last_build.get("error"):
+        parts.append(f"Error and automatic analysis:\n{last_build['error']}")
+    log_path = last_build.get("log_path")
+    if log_path:
+        try:
+            from pathlib import Path
+            text = Path(log_path).read_text(errors="replace")
+            error_lines = [ln for ln in text.splitlines()
+                           if ln.startswith(("E:", "ERROR")) or "dpkg: error" in ln]
+            tail = "\n".join(error_lines[-15:]) or text[-2500:]
+            parts.append(f"Relevant build log lines:\n{tail}")
+        except OSError:
+            pass
+    return "\n\n".join(parts)
+
+
+def _build_api_messages(history: list[dict], draft_config: Optional[dict],
+                        last_build: Optional[dict] = None) -> list[dict]:
     """Rebuild the API conversation from stored display history. Tool exchanges
-    are not persisted; instead the current config state is injected as context
-    ahead of the latest user message."""
+    are not persisted; instead the current config state and the latest build
+    outcome are injected as context ahead of the latest user message."""
     messages: list[dict] = []
     for msg in history:
         role = "assistant" if msg["role"] == "assistant" else "user"
@@ -124,12 +154,16 @@ def _build_api_messages(history: list[dict], draft_config: Optional[dict]) -> li
             messages[-1]["content"] += "\n\n" + msg["content"]
         else:
             messages.append({"role": role, "content": msg["content"]})
-    if messages and draft_config:
-        state = json.dumps(draft_config, indent=None)
-        messages[-1]["content"] = (
-            f"<current_config_state>{state}</current_config_state>\n\n"
-            + messages[-1]["content"]
-        )
+    if messages:
+        context = ""
+        if draft_config:
+            state = json.dumps(draft_config, indent=None)
+            context += f"<current_config_state>{state}</current_config_state>\n"
+        failure = _build_failure_context(last_build)
+        if failure:
+            context += f"<latest_build_result>\n{failure}\n</latest_build_result>\n"
+        if context:
+            messages[-1]["content"] = context + "\n" + messages[-1]["content"]
     return messages
 
 
@@ -167,13 +201,14 @@ async def _handle_tool_call(project_id: int, name: str, tool_input: dict) -> tup
 
 
 async def stream_chat(project_id: int, history: list[dict],
-                      draft_config: Optional[dict]) -> AsyncIterator[dict]:
+                      draft_config: Optional[dict],
+                      last_build: Optional[dict] = None) -> AsyncIterator[dict]:
     """Yield SSE-ready event dicts: text deltas, config updates, completion."""
     settings = get_settings()
     client = get_client()
     system = SYSTEM_PROMPT.format(max_size_gb=settings.max_iso_size_gb)
     tools = [UPDATE_CONFIG_TOOL, VALIDATE_PACKAGES_TOOL]
-    messages = _build_api_messages(history, draft_config)
+    messages = _build_api_messages(history, draft_config, last_build)
 
     full_text_parts: list[str] = []
     ready = bool(draft_config and draft_config.get("ready"))
