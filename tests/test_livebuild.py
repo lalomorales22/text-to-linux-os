@@ -56,3 +56,16 @@ def test_boot_mode_both(tmp_path):
     config = {**CONFIG, "hardware": {**CONFIG["hardware"], "boot": "both"}}
     livebuild.generate_config_tree(config, None, build_dir)
     assert "syslinux,grub-efi" in (build_dir / "auto" / "config").read_text()
+
+
+def test_calamares_companions_added_at_build_time(tmp_path):
+    """An installer ISO must include unsquashfs + grub tooling even when the
+    saved config predates the companion rules (Recommends are disabled)."""
+    build_dir = tmp_path / "b3"
+    build_dir.mkdir()
+    config = {**CONFIG, "packages": ["calamares", "htop"]}
+    config_dir = livebuild.generate_config_tree(config, None, build_dir)
+    pkg_list = (config_dir / "package-lists" / "main.list.chroot").read_text()
+    for companion in ("squashfs-tools", "calamares-settings-debian",
+                      "grub-efi-amd64-bin", "grub-pc-bin", "efibootmgr"):
+        assert companion in pkg_list, f"missing companion: {companion}"

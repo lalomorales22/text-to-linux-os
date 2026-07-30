@@ -69,3 +69,21 @@ def test_size_estimate_uses_real_sizes():
 def test_fuzzy_suggestions():
     seed_index()
     assert "chromium" in debian_packages.suggest_alternatives("chromum")
+
+
+def test_expand_companions():
+    from backend.services.debian_packages import expand_companions
+
+    expanded, added = expand_companions(["calamares", "htop"])
+    assert "squashfs-tools" in expanded
+    assert "calamares-settings-debian" in expanded
+    assert "calamares" in added
+
+    # already-present companions are not duplicated
+    expanded2, added2 = expand_companions(["calamares", "squashfs-tools"])
+    assert expanded2.count("squashfs-tools") == 1
+    assert "squashfs-tools" not in added2.get("calamares", [])
+
+    # no triggers, no changes
+    expanded3, added3 = expand_companions(["htop", "git"])
+    assert expanded3 == ["htop", "git"] and added3 == {}

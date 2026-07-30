@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import get_settings
-from backend.services.debian_packages import DESKTOP_PACKAGES, ESSENTIAL_PACKAGES
+from backend.services.debian_packages import (DESKTOP_PACKAGES, ESSENTIAL_PACKAGES,
+                                              expand_companions)
 
 
 def sanitize_name(name: str) -> str:
@@ -80,7 +81,10 @@ lb config noauto \\
 
 
 def _write_package_list(config: dict[str, Any], config_dir: Path) -> None:
-    user_packages = [p for p in config.get("packages", [])
+    # Safety net: configs saved before a companion rule existed still get the
+    # helpers their packages need at runtime (Recommends are disabled).
+    expanded, _added = expand_companions(config.get("packages", []))
+    user_packages = [p for p in expanded
                      if p not in ESSENTIAL_PACKAGES and p not in DESKTOP_PACKAGES]
     sections = [
         ("# Base system", ESSENTIAL_PACKAGES),

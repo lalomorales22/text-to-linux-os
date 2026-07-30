@@ -53,6 +53,18 @@ alternatives.
 When you set ready=true, tell them to press "Build ISO".
 - Old hardware guidance: for machines with <2GB RAM avoid heavy browsers (suggest \
 falkon or dillo); prefer bios boot mode for pre-2010 machines.
+- The image is built with apt Recommends DISABLED, so packages that quietly rely on \
+recommended helpers break at runtime. Known traps (the tool auto-adds these, but think \
+about this class of problem for anything unusual you include): calamares needs \
+squashfs-tools (unsquashfs), calamares-settings-debian, grub-pc-bin + grub-efi-amd64-bin \
++ grub2-common + efibootmgr + dosfstools or installing to disk fails; dkms needs \
+linux-headers-amd64 and build-essential; cups prints nothing without printer-driver-all. \
+When the user wants to INSTALL the OS onto the machine's disk (not just run live), \
+include calamares and mention the companions were handled.
+- Laptop guidance: include the right firmware for the wifi chip (firmware-brcm80211 \
+for Broadcom Macs, firmware-iwlwifi for Intel, firmware-realtek/firmware-atheros \
+otherwise), plus wireless-tools, iw, and rfkill so wifi is debuggable. For old \
+MacBooks add mbpfan (fan control) and brightnessctl. For <=4GB RAM add zram-tools.
 - If a <latest_build_result> block appears in the conversation, the most recent ISO \
 build for this project failed — you have the failure analysis and a log excerpt right \
 there. Do not say you can't see the build. Explain the root cause in one or two \
@@ -176,7 +188,10 @@ async def _handle_tool_call(project_id: int, name: str, tool_input: dict) -> tup
     if name == "update_config":
         config = {k: v for k, v in tool_input.items() if k != "ready"}
         ready = bool(tool_input.get("ready"))
-        validation = debian_packages.validate_packages(config.get("packages", []))
+        packages, companions_added = debian_packages.expand_companions(
+            config.get("packages", []))
+        config["packages"] = packages
+        validation = debian_packages.validate_packages(packages)
         invalid = [r for r in validation["results"] if not r["exists"]]
         if invalid:
             return json.dumps({
@@ -191,11 +206,17 @@ async def _handle_tool_call(project_id: int, name: str, tool_input: dict) -> tup
                          status="configured" if ready else "configuring")
         event = {"type": "config", "config": config, "ready": ready}
         max_mb = get_settings().max_iso_size_gb * 1024
-        return json.dumps({
+        result: dict = {
             "accepted": True,
             "size_estimate_mb": validation["size_estimate_mb"],
             "size_warning": validation["size_estimate_mb"] > max_mb * 0.85,
-        }), event
+        }
+        if companions_added:
+            result["companions_auto_added"] = companions_added
+            result["note"] = ("Required companion packages were added automatically "
+                             "(the builder skips apt Recommends). Briefly tell the "
+                             "user what was added and why.")
+        return json.dumps(result), event
 
     return json.dumps({"error": f"unknown tool {name}"}), None
 

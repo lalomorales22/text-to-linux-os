@@ -59,6 +59,46 @@ KNOWN_ALIASES: dict[str, list[str]] = {
     "slack": ["firefox-esr"],
 }
 
+# Companion rules: packages that break at runtime without helpers apt won't
+# pull in (the builder uses --apt-recommends false to keep ISOs lean, so
+# Recommends are skipped — calamares only *Recommends* squashfs-tools, and
+# without it the installer dies with "failed to find unsquashfs" mid-install).
+# Applied automatically at config time (wizard) and build time (safety net).
+COMPANION_PACKAGES: dict[str, list[str]] = {
+    # Install-to-disk: the unpackfs module needs unsquashfs; the bootloader
+    # module needs grub tooling *inside* the live filesystem (it gets copied
+    # to the target disk); the partition module formats the EFI partition
+    # with mkfs.fat from dosfstools.
+    "calamares": [
+        "calamares-settings-debian", "squashfs-tools", "grub-pc-bin",
+        "grub-efi-amd64-bin", "grub2-common", "efibootmgr", "dosfstools",
+    ],
+    # DKMS is useless without kernel headers to compile against.
+    "dkms": ["linux-headers-amd64", "build-essential"],
+    # Broadcom firmware needs the wireless stack tools to be debuggable.
+    "firmware-brcm80211": ["wireless-regdb", "rfkill"],
+    # Printing without a driver set prints nothing.
+    "cups": ["printer-driver-all"],
+    # Flatpak on our Openbox desktop needs the Flathub-capable plumbing.
+    "flatpak": ["xdg-desktop-portal-gtk"],
+}
+
+
+def expand_companions(packages: list[str]) -> tuple[list[str], dict[str, list[str]]]:
+    """Return (expanded package list, {trigger: [added...]}) preserving order."""
+    expanded = list(packages)
+    present = {p.lower() for p in packages}
+    added: dict[str, list[str]] = {}
+    for trigger, companions in COMPANION_PACKAGES.items():
+        if trigger in present:
+            missing = [c for c in companions if c not in present]
+            if missing:
+                expanded.extend(missing)
+                present.update(missing)
+                added[trigger] = missing
+    return expanded, added
+
+
 # Size model constants (documented heuristics applied to REAL installed sizes):
 # squashfs compresses the root filesystem to roughly 45% of installed size, and
 # dependency closure typically adds ~35% over the top-level package list.
